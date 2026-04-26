@@ -1,0 +1,12 @@
+{
+  "name": "tl-tracker",
+  "version": "1.0.0",
+  "description": "Zamtel Team Lead Tracking Tool",
+  "scripts": {
+    "build": "cd backend && npm ci --legacy-peer-deps && npm run build",
+    "start": "cd backend && node dist/index.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
