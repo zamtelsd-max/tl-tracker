@@ -75,7 +75,7 @@ model Activation {
   teamLead     TeamLead @relation(fields: [teamLeadId], references: [id])
   dsaId        String
   dsa          DSA      @relation(fields: [dsaId], references: [id])
-  customerName String
+  customerName String?
   count        Int      @default(1)
   hourSlot     String
   date         String

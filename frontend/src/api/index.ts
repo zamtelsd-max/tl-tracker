@@ -24,7 +24,6 @@ export const getActivations = async (date?: string) => {
 
 export const logActivation = async (data: {
   dsaId: string;
-  customerName: string;
   count: number;
   hourSlot: string;
   date: string;

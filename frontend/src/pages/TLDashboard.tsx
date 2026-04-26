@@ -249,33 +249,54 @@ export default function TLDashboard() {
           </div>
         )}
 
-        {/* Hourly Bar Chart */}
+        {/* Hourly Active DSA Chart */}
         <div className="bg-white rounded-2xl shadow-sm p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp size={16} className="text-[#00843D]" />
-            <p className="text-sm font-bold text-slate-700">Hourly Activity</p>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={16} className="text-[#00843D]" />
+              <p className="text-sm font-bold text-slate-700">Active DSAs per Hour</p>
+            </div>
+            <p className="text-xs text-slate-400">vs {dsaCount} target</p>
           </div>
-          <div className="flex items-end gap-1 h-16">
+          <div className="flex items-end gap-1" style={{ height: '64px' }}>
             {hourlyActivations.map((slot, i) => {
               const isCurrentHour = slot.slot === kpis.currentHour;
-              const maxVal = Math.max(...hourlyActivations.map((s) => s.activations), 1);
-              const pct = (slot.activations / maxVal) * 100;
+              const target = (slot as { activeDSAs?: number; dsaTarget?: number }).dsaTarget ?? dsaCount;
+              const active = (slot as { activeDSAs?: number }).activeDSAs ?? 0;
+              const pct = target > 0 ? (active / target) * 100 : 0;
+              const metTarget = active >= target && target > 0;
               return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                  <div className="w-full flex flex-col justify-end" style={{ height: '48px' }}>
-                    <div
-                      className={`w-full rounded-t transition-all duration-500 ${
-                        isCurrentHour ? 'bg-[#E4007C]' : slot.activations > 0 ? 'bg-[#00843D]' : 'bg-slate-200'
-                      }`}
-                      style={{ height: `${Math.max(pct, slot.activations > 0 ? 15 : 5)}%` }}
-                    />
+                <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+                  {/* Count label */}
+                  <p className={`text-[9px] font-bold leading-none ${active > 0 ? (metTarget ? 'text-[#00843D]' : isCurrentHour ? 'text-[#E4007C]' : 'text-amber-600') : 'text-slate-300'}`}>
+                    {active > 0 ? `${active}/${target}` : ''}
+                  </p>
+                  <div className="w-full flex flex-col justify-end" style={{ height: '44px' }}>
+                    {/* Target line marker */}
+                    <div className="relative w-full" style={{ height: '44px' }}>
+                      {/* Target dashed line at 100% */}
+                      <div className="absolute w-full border-t border-dashed border-slate-300" style={{ top: '0px' }} />
+                      {/* Bar */}
+                      <div
+                        className={`absolute bottom-0 w-full rounded-t transition-all duration-500 ${
+                          metTarget ? 'bg-[#00843D]' : isCurrentHour ? 'bg-[#E4007C]' : active > 0 ? 'bg-amber-400' : 'bg-slate-100'
+                        }`}
+                        style={{ height: `${Math.max(active > 0 ? 12 : 3, pct)}%` }}
+                      />
+                    </div>
                   </div>
-                  <p className="text-[8px] text-slate-400 w-full text-center">
+                  <p className="text-[8px] text-slate-400 w-full text-center leading-none">
                     {slot.slot.split(':')[0]}
                   </p>
                 </div>
               );
             })}
+          </div>
+          {/* Legend */}
+          <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[#00843D] inline-block" />Met target</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-amber-400 inline-block" />Partial</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[#E4007C] inline-block" />Current hr</span>
           </div>
         </div>
 

@@ -46,13 +46,19 @@ router.get('/dashboard', async (req: AuthRequest, res: Response): Promise<void> 
     const activationsThisHour = thisHourActivations.reduce((sum, a) => sum + a.count, 0);
     const activeDSAsThisHour = new Set(thisHourActivations.map((a) => a.dsaId)).size;
 
-    // Hourly breakdown
+    // Hourly breakdown — include active DSA count per slot
     const workingHours = getWorkingHours();
     const hourlyActivations = workingHours.map((wh) => {
       const whNum = parseInt(wh);
       const slot = `${wh}:00-${String(whNum + 1).padStart(2, '0')}:00`;
       const slotActs = todayActivations.filter((a) => a.hourSlot === slot);
-      return { slot, activations: slotActs.reduce((sum, a) => sum + a.count, 0) };
+      const activeDSAsInSlot = new Set(slotActs.map((a) => a.dsaId)).size;
+      return {
+        slot,
+        activations: slotActs.reduce((sum, a) => sum + a.count, 0),
+        activeDSAs: activeDSAsInSlot,
+        dsaTarget: dsaCount,
+      };
     });
 
     const kpis = calculateKPIs({
@@ -104,7 +110,6 @@ router.post(
   '/activations',
   [
     body('dsaId').notEmpty(),
-    body('customerName').notEmpty(),
     body('count').isInt({ min: 1 }),
     body('hourSlot').notEmpty(),
     body('date').isISO8601(),
@@ -123,10 +128,9 @@ router.post(
         return;
       }
 
-      const { dsaId, customerName, count, hourSlot, date, latitude, longitude, notes } =
+      const { dsaId, count, hourSlot, date, latitude, longitude, notes } =
         req.body as {
           dsaId: string;
-          customerName: string;
           count: number;
           hourSlot: string;
           date: string;
@@ -149,7 +153,6 @@ router.post(
         data: {
           teamLeadId,
           dsaId,
-          customerName,
           count: Number(count),
           hourSlot,
           date,
@@ -340,7 +343,12 @@ router.get('/runrate', async (req: AuthRequest, res: Response): Promise<void> =>
       const whNum = parseInt(wh);
       const slot = `${wh}:00-${String(whNum + 1).padStart(2, '0')}:00`;
       const slotActs = todayActivations.filter((a) => a.hourSlot === slot);
-      return { slot, activations: slotActs.reduce((sum, a) => sum + a.count, 0) };
+      return {
+        slot,
+        activations: slotActs.reduce((sum, a) => sum + a.count, 0),
+        activeDSAs: new Set(slotActs.map((a) => a.dsaId)).size,
+        dsaTarget: tl!.dsas.length,
+      };
     });
 
     const activeDSAIds = new Set(todayActivations.map((a) => a.dsaId));

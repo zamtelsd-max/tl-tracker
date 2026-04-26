@@ -11,7 +11,6 @@ export default function TLLogActivation() {
   const queryClient = useQueryClient();
 
   const [dsaId, setDsaId] = useState('');
-  const [customerName, setCustomerName] = useState('');
   const [count, setCount] = useState(1);
   const [hourSlot, setHourSlot] = useState(getCurrentHourSlot());
   const [date, setDate] = useState(formatDate());
@@ -66,8 +65,7 @@ export default function TLLogActivation() {
   const handleSubmit = () => {
     setError('');
     if (!dsaId) { setError('Select a DSA'); return; }
-    if (!customerName.trim()) { setError('Enter customer name'); return; }
-    mutation.mutate({ dsaId, customerName: customerName.trim(), count, hourSlot, date, latitude, longitude, notes: notes || undefined });
+    mutation.mutate({ dsaId, count, hourSlot, date, latitude, longitude, notes: notes || undefined });
   };
 
   if (success) {
@@ -106,20 +104,6 @@ export default function TLLogActivation() {
               </button>
             ))}
           </div>
-        </div>
-
-        {/* Customer Name */}
-        <div className="bg-white rounded-2xl shadow-sm p-4">
-          <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-2 block">
-            Customer Name *
-          </label>
-          <input
-            type="text"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            placeholder="Enter customer full name"
-            className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-[#00843D] transition-colors"
-          />
         </div>
 
         {/* Count */}

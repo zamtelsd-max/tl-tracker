@@ -43,13 +43,19 @@ router.get('/dashboard', async (req, res) => {
         const thisHourActivations = todayActivations.filter((a) => a.hourSlot === currentSlot);
         const activationsThisHour = thisHourActivations.reduce((sum, a) => sum + a.count, 0);
         const activeDSAsThisHour = new Set(thisHourActivations.map((a) => a.dsaId)).size;
-        // Hourly breakdown
+        // Hourly breakdown — include active DSA count per slot
         const workingHours = (0, kpi_1.getWorkingHours)();
         const hourlyActivations = workingHours.map((wh) => {
             const whNum = parseInt(wh);
             const slot = `${wh}:00-${String(whNum + 1).padStart(2, '0')}:00`;
             const slotActs = todayActivations.filter((a) => a.hourSlot === slot);
-            return { slot, activations: slotActs.reduce((sum, a) => sum + a.count, 0) };
+            const activeDSAsInSlot = new Set(slotActs.map((a) => a.dsaId)).size;
+            return {
+                slot,
+                activations: slotActs.reduce((sum, a) => sum + a.count, 0),
+                activeDSAs: activeDSAsInSlot,
+                dsaTarget: dsaCount,
+            };
         });
         const kpis = (0, kpi_1.calculateKPIs)({
             totalActivations,
@@ -95,7 +101,6 @@ router.get('/dashboard', async (req, res) => {
 // POST /api/v1/tl/activations
 router.post('/activations', [
     (0, express_validator_1.body)('dsaId').notEmpty(),
-    (0, express_validator_1.body)('customerName').notEmpty(),
     (0, express_validator_1.body)('count').isInt({ min: 1 }),
     (0, express_validator_1.body)('hourSlot').notEmpty(),
     (0, express_validator_1.body)('date').isISO8601(),
@@ -111,7 +116,7 @@ router.post('/activations', [
             res.status(403).json({ success: false, error: 'Not a team lead' });
             return;
         }
-        const { dsaId, customerName, count, hourSlot, date, latitude, longitude, notes } = req.body;
+        const { dsaId, count, hourSlot, date, latitude, longitude, notes } = req.body;
         // Verify DSA belongs to this TL
         const dsa = await prisma_1.default.dSA.findFirst({
             where: { id: dsaId, teamLeadId },
@@ -124,7 +129,6 @@ router.post('/activations', [
             data: {
                 teamLeadId,
                 dsaId,
-                customerName,
                 count: Number(count),
                 hourSlot,
                 date,
@@ -285,7 +289,12 @@ router.get('/runrate', async (req, res) => {
             const whNum = parseInt(wh);
             const slot = `${wh}:00-${String(whNum + 1).padStart(2, '0')}:00`;
             const slotActs = todayActivations.filter((a) => a.hourSlot === slot);
-            return { slot, activations: slotActs.reduce((sum, a) => sum + a.count, 0) };
+            return {
+                slot,
+                activations: slotActs.reduce((sum, a) => sum + a.count, 0),
+                activeDSAs: new Set(slotActs.map((a) => a.dsaId)).size,
+                dsaTarget: tl.dsas.length,
+            };
         });
         const activeDSAIds = new Set(todayActivations.map((a) => a.dsaId));
         const kpis = (0, kpi_1.calculateKPIs)({
