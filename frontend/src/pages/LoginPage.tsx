@@ -106,11 +106,26 @@ export default function LoginPage() {
           />
         </div>
 
-        {/* PIN display */}
+        {/* PIN display + text input */}
         <div className="mb-4">
-          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2 block text-center">
+          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2 block">
             4-Digit PIN
           </label>
+          <input
+            type="password"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={4}
+            value={pin}
+            onChange={(e) => {
+              const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+              setPin(v);
+            }}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
+            placeholder="● ● ● ●"
+            className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-center text-2xl font-bold tracking-widest focus:outline-none focus:border-[#00843D] transition-colors"
+          />
+          <p className="text-center text-xs text-slate-400 mt-1">Type or use keypad below</p>
           <div className="flex justify-center gap-4 py-2">
             {[0, 1, 2, 3].map((i) => (
               <PinDot key={i} filled={i < pin.length} />
