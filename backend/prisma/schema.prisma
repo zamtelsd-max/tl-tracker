@@ -1,0 +1,110 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  staffId   String   @unique
+  pinHash   String
+  name      String
+  role      Role
+  zone      String?
+  region    String?
+  territory String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  teamLeads  TeamLead[] @relation("ASETeamLeads")
+  asTeamLead TeamLead?  @relation("TLUser")
+}
+
+enum Role {
+  HSD
+  ZBM
+  ASE
+  TL
+  ADMIN
+}
+
+model TeamLead {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation("TLUser", fields: [userId], references: [id])
+  aseId           String?
+  ase             User?    @relation("ASETeamLeads", fields: [aseId], references: [id])
+  zone            String?
+  region          String?
+  allocatedTarget Int      @default(50)
+  createdAt       DateTime @default(now())
+
+  dsas        DSA[]
+  activations Activation[]
+  alerts      Alert[]
+}
+
+model DSA {
+  id         String    @id @default(cuid())
+  teamLeadId String
+  teamLead   TeamLead  @relation(fields: [teamLeadId], references: [id])
+  name       String
+  phone      String?
+  status     DSAStatus @default(ACTIVE)
+  dateJoined DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+
+  activations Activation[]
+
+  @@unique([teamLeadId, name])
+}
+
+enum DSAStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Activation {
+  id           String   @id @default(cuid())
+  teamLeadId   String
+  teamLead     TeamLead @relation(fields: [teamLeadId], references: [id])
+  dsaId        String
+  dsa          DSA      @relation(fields: [dsaId], references: [id])
+  customerName String
+  count        Int      @default(1)
+  hourSlot     String
+  date         String
+  latitude     Float?
+  longitude    Float?
+  notes        String?
+  createdAt    DateTime @default(now())
+}
+
+model Alert {
+  id           String      @id @default(cuid())
+  teamLeadId   String?
+  teamLead     TeamLead?   @relation(fields: [teamLeadId], references: [id])
+  type         AlertType
+  message      String
+  targetUserId String?
+  status       AlertStatus @default(SENT)
+  createdAt    DateTime    @default(now())
+}
+
+enum AlertType {
+  ZERO_ACTIVITY
+  MISSED_TARGET
+  END_OF_DAY
+  ESCALATION
+}
+
+enum AlertStatus {
+  SENT
+  READ
+  RESOLVED
+}
