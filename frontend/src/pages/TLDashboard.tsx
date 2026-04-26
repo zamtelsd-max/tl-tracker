@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { Plus, AlertTriangle, TrendingUp, Clock, Users } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Plus, AlertTriangle, TrendingUp, Clock, Users, UserPlus, X } from 'lucide-react';
 import Layout from '../components/Layout';
 import ProgressRing from '../components/ProgressRing';
-import { getTLDashboard } from '../api';
+import { getTLDashboard, addDSA } from '../api';
 import type { DSASummary } from '../types';
 
 function DSACard({ dsa }: { dsa: DSASummary }) {
@@ -43,8 +44,89 @@ function DSACard({ dsa }: { dsa: DSASummary }) {
   );
 }
 
+function AddDSAModal({ onClose }: { onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [err, setErr] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: () => addDSA({ name: name.trim(), phone: phone.trim() || undefined }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['tl-dashboard'] });
+      void queryClient.invalidateQueries({ queryKey: ['dsas'] });
+      onClose();
+    },
+    onError: (e: unknown) => {
+      const ax = e as { response?: { data?: { error?: string } } };
+      setErr(ax.response?.data?.error || 'Failed to add DSA');
+    },
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-0">
+      <div className="bg-white rounded-t-3xl w-full max-w-lg p-6 shadow-2xl">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-slate-800">Add New DSA</h2>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100">
+            <X size={20} className="text-slate-500" />
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-1 block">
+              Full Name *
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Banda Mwanza"
+              autoFocus
+              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-[#00843D] transition-colors"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-1 block">
+              Phone Number (Optional)
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="e.g. 0971234567"
+              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-[#00843D] transition-colors"
+            />
+          </div>
+
+          {err && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+              {err}
+            </div>
+          )}
+
+          <button
+            onClick={() => {
+              setErr('');
+              if (!name.trim()) { setErr('DSA name is required'); return; }
+              mutation.mutate();
+            }}
+            disabled={mutation.isPending}
+            className="w-full bg-[#00843D] hover:bg-[#006B31] disabled:bg-slate-300 text-white font-bold text-base rounded-2xl py-4 transition-all active:scale-98 mt-2"
+          >
+            {mutation.isPending ? 'Adding...' : 'Add DSA'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TLDashboard() {
   const navigate = useNavigate();
+  const [showAddDSA, setShowAddDSA] = useState(false);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['tl-dashboard'],
@@ -89,6 +171,7 @@ export default function TLDashboard() {
   }
 
   const { kpis, dsaSummary, hourlyActivations, alertCount, tl } = data;
+  const dsaCount = dsaSummary.length;
   const progress = Math.min(100, kpis.teamTargetAttainment);
   const ringColor = progress >= 80 ? '#00843D' : progress >= 50 ? '#F59E0B' : '#DC2626';
 
@@ -101,6 +184,7 @@ export default function TLDashboard() {
       subtitle={tl.name}
       alertCount={alertCount}
     >
+      {showAddDSA && <AddDSAModal onClose={() => setShowAddDSA(false)} />}
       <div className="px-4 py-4 space-y-4">
 
         {/* Big Progress Ring */}
@@ -200,14 +284,26 @@ export default function TLDashboard() {
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Users size={16} className="text-[#00843D]" />
-              <p className="text-sm font-bold text-slate-700">DSA Performance</p>
+              <p className="text-sm font-bold text-slate-700">
+                DSA Performance
+                <span className="ml-1 text-xs font-normal text-slate-400">({dsaCount}/10)</span>
+              </p>
             </div>
-            <div className="flex gap-2 text-xs">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />&gt;80%</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />50-79%</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />&lt;50%</span>
-            </div>
+            <button
+              onClick={() => setShowAddDSA(true)}
+              className="flex items-center gap-1 bg-[#00843D]/10 hover:bg-[#00843D]/20 text-[#00843D] text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
+            >
+              <UserPlus size={13} />
+              Add DSA
+            </button>
           </div>
+          {dsaCount === 0 && (
+            <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl p-6 text-center">
+              <UserPlus size={32} className="text-slate-300 mx-auto mb-2" />
+              <p className="text-sm font-semibold text-slate-500">No DSAs yet</p>
+              <p className="text-xs text-slate-400 mt-1">Tap "Add DSA" to register your team members</p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2">
             {dsaSummary.map((dsa) => (
               <DSACard key={dsa.id} dsa={dsa} />
