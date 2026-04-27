@@ -172,6 +172,7 @@ export default function TLDashboard() {
 
   const { kpis, dsaSummary, hourlyActivations, alertCount, tl } = data;
   const dsaCount = dsaSummary.length;
+  const noDSAs = dsaCount === 0;
   const progress = Math.min(100, kpis.teamTargetAttainment);
   const ringColor = progress >= 80 ? '#00843D' : progress >= 50 ? '#F59E0B' : '#DC2626';
 
@@ -186,6 +187,26 @@ export default function TLDashboard() {
     >
       {showAddDSA && <AddDSAModal onClose={() => setShowAddDSA(false)} />}
       <div className="px-4 py-4 space-y-4">
+
+        {/* ── No DSAs: full-page prompt ─────────────────────────────────── */}
+        {noDSAs && (
+          <div className="bg-white rounded-2xl shadow-sm p-6 text-center border-2 border-dashed border-[#00843D]/40">
+            <div className="w-16 h-16 rounded-full bg-[#00843D]/10 flex items-center justify-center mx-auto mb-4">
+              <UserPlus size={32} className="text-[#00843D]" />
+            </div>
+            <h2 className="text-lg font-bold text-slate-800 mb-1">No DSAs registered yet</h2>
+            <p className="text-sm text-slate-500 mb-4">
+              Add your Direct Sales Agents to start tracking<br />gross adds and hourly performance.
+            </p>
+            <button
+              onClick={() => setShowAddDSA(true)}
+              className="bg-[#00843D] hover:bg-[#006B31] text-white font-bold px-8 py-3 rounded-2xl shadow-lg flex items-center gap-2 mx-auto transition-all active:scale-95"
+            >
+              <UserPlus size={18} />
+              Add Your First DSA
+            </button>
+          </div>
+        )}
 
         {/* Big Progress Ring */}
         <div className="bg-white rounded-2xl shadow-sm p-5 text-center">
@@ -335,14 +356,24 @@ export default function TLDashboard() {
 
       {/* FAB */}
       <div className="fixed bottom-6 right-4 max-w-lg w-full" style={{ maxWidth: 'calc(100% - 2rem)' }}>
-        <div className="flex justify-end">
-          <button
-            onClick={() => navigate('/tl/log')}
-            className="bg-[#00843D] hover:bg-[#006B31] active:bg-[#005528] text-white font-bold rounded-full px-6 py-4 shadow-2xl flex items-center gap-2 transition-all duration-150 active:scale-95"
-          >
-            <Plus size={20} />
-            LOG ACTIVATION
-          </button>
+        <div className="flex justify-end gap-3">
+          {noDSAs ? (
+            <button
+              onClick={() => setShowAddDSA(true)}
+              className="bg-[#00843D] hover:bg-[#006B31] active:bg-[#005528] text-white font-bold rounded-full px-6 py-4 shadow-2xl flex items-center gap-2 transition-all duration-150 active:scale-95"
+            >
+              <UserPlus size={20} />
+              ADD DSA
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate('/tl/log')}
+              className="bg-[#00843D] hover:bg-[#006B31] active:bg-[#005528] text-white font-bold rounded-full px-6 py-4 shadow-2xl flex items-center gap-2 transition-all duration-150 active:scale-95"
+            >
+              <Plus size={20} />
+              LOG ACTIVATION
+            </button>
+          )}
         </div>
       </div>
     </Layout>
