@@ -107,6 +107,12 @@ export const zbmGetASEs = async () => {
   const res = await api.get<ApiResponse<{ id: string; staffId: string; name: string; zone?: string; region?: string }[]>>('/zbm/ases');
   return res.data;
 };
+export const zbmAddASE = async (data: {
+  staffId: string; name: string; pin: string; region: string;
+}) => {
+  const res = await api.post<ApiResponse<{ id: string; staffId: string; name: string }>>('/zbm/ases', data);
+  return res.data;
+};
 export const zbmGetTeamLeads = async () => {
   const res = await api.get<ApiResponse<unknown[]>>('/zbm/teamleads');
   return res.data;

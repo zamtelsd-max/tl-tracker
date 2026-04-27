@@ -232,6 +232,54 @@ router.get('/teamleads', async (req: AuthRequest, res: Response): Promise<void> 
   }
 });
 
+// POST /api/v1/zbm/ases — create a new ASE under this ZBM's zone
+router.post(
+  '/ases',
+  [
+    body('staffId').notEmpty().withMessage('Staff ID required'),
+    body('name').notEmpty().withMessage('Name required'),
+    body('pin').isLength({ min: 4, max: 4 }).withMessage('PIN must be 4 digits'),
+    body('region').notEmpty().withMessage('Region required'),
+  ],
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ success: false, error: errors.array()[0].msg });
+      return;
+    }
+    try {
+      const { userId } = req.user!;
+      const zbmUser = await prisma.user.findUnique({ where: { id: userId } });
+      const { staffId, name, pin, region } = req.body as {
+        staffId: string; name: string; pin: string; region: string;
+      };
+
+      const existing = await prisma.user.findUnique({ where: { staffId: staffId.toUpperCase() } });
+      if (existing) {
+        res.status(409).json({ success: false, error: 'Staff ID already exists' });
+        return;
+      }
+
+      const pinHash = await bcrypt.hash(pin, 10);
+      const aseUser = await prisma.user.create({
+        data: {
+          staffId: staffId.toUpperCase(),
+          pinHash,
+          name,
+          role: 'ASE',
+          zone: zbmUser?.zone ?? undefined,
+          region,
+        },
+      });
+
+      res.status(201).json({ success: true, data: aseUser });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ success: false, error: 'Server error' });
+    }
+  }
+);
+
 // GET /api/v1/zbm/ases — list ASEs in this ZBM's zone (for assigning TLs)
 router.get('/ases', async (req: AuthRequest, res: Response): Promise<void> => {
   try {

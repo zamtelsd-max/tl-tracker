@@ -3,8 +3,91 @@ import { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
-import { getZBMDashboard, zbmAddTeamLead, zbmGetASEs } from '../api';
+import { getZBMDashboard, zbmAddTeamLead, zbmGetASEs, zbmAddASE } from '../api';
 import { Map, TrendingUp, Users, Target, UserPlus, X } from 'lucide-react';
+
+function AddASEModal({ onClose }: { onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [staffId, setStaffId] = useState('');
+  const [name, setName] = useState('');
+  const [pin, setPin] = useState('');
+  const [region, setRegion] = useState('');
+  const [err, setErr] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: () => zbmAddASE({
+      staffId: staffId.trim().toUpperCase(),
+      name: name.trim(),
+      pin,
+      region: region.trim(),
+    }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['zbm-ases'] });
+      void queryClient.invalidateQueries({ queryKey: ['zbm-dashboard'] });
+      onClose();
+    },
+    onError: (e: unknown) => {
+      const ax = e as { response?: { data?: { error?: string } } };
+      setErr(ax.response?.data?.error || 'Failed to add ASE');
+    },
+  });
+
+  const handleSubmit = () => {
+    setErr('');
+    if (!staffId.trim()) { setErr('Staff ID required'); return; }
+    if (!name.trim()) { setErr('Full name required'); return; }
+    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) { setErr('PIN must be exactly 4 digits'); return; }
+    if (!region.trim()) { setErr('Region required'); return; }
+    mutation.mutate();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+      <div className="bg-white rounded-t-3xl w-full max-w-lg p-6 shadow-2xl">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <UserPlus size={20} className="text-[#E4007C]" /> Add ASE
+          </h2>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100">
+            <X size={20} className="text-slate-500" />
+          </button>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-1 block">Staff ID *</label>
+            <input type="text" value={staffId} onChange={e => setStaffId(e.target.value.toUpperCase())}
+              placeholder="e.g. ASE-CE-02"
+              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base font-mono tracking-widest focus:outline-none focus:border-[#E4007C] transition-colors" />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-1 block">Full Name *</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Mary Phiri"
+              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-[#E4007C] transition-colors" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-1 block">PIN * (4 digits)</label>
+              <input type="password" inputMode="numeric" maxLength={4} value={pin}
+                onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="• • • •"
+                className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-center text-base tracking-widest focus:outline-none focus:border-[#E4007C] transition-colors" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-1 block">Region *</label>
+              <input type="text" value={region} onChange={e => setRegion(e.target.value)} placeholder="e.g. Central South"
+                className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-[#E4007C] transition-colors" />
+            </div>
+          </div>
+          {err && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{err}</div>}
+          <button onClick={handleSubmit} disabled={mutation.isPending}
+            className="w-full bg-[#E4007C] hover:bg-[#C0006A] disabled:bg-slate-300 text-white font-bold text-base rounded-2xl py-4 transition-all active:scale-98 mt-1">
+            {mutation.isPending ? 'Creating...' : 'Create ASE'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function AddTLModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -115,6 +198,7 @@ function AddTLModal({ onClose }: { onClose: () => void }) {
 
 export default function ZBMDashboard() {
   const [showAddTL, setShowAddTL] = useState(false);
+  const [showAddASE, setShowAddASE] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ['zbm-dashboard'],
     queryFn: async () => {
@@ -157,6 +241,7 @@ export default function ZBMDashboard() {
   return (
     <Layout title="ZBM Dashboard" subtitle={data?.zone ? `Zone: ${data.zone}` : undefined}>
       {showAddTL && <AddTLModal onClose={() => setShowAddTL(false)} />}
+      {showAddASE && <AddASEModal onClose={() => setShowAddASE(false)} />}
       <div className="px-4 py-4 space-y-4">
 
         {/* Summary */}
@@ -260,10 +345,16 @@ export default function ZBMDashboard() {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-bold text-slate-700">Team Lead Details</p>
-            <button onClick={() => setShowAddTL(true)}
-              className="flex items-center gap-1 bg-[#00843D]/10 hover:bg-[#00843D]/20 text-[#00843D] text-xs font-bold px-3 py-1.5 rounded-lg transition-all">
-              <UserPlus size={13} /> Add TL
-            </button>
+            <div className="flex gap-2">
+              <button onClick={() => setShowAddASE(true)}
+                className="flex items-center gap-1 bg-[#E4007C]/10 hover:bg-[#E4007C]/20 text-[#E4007C] text-xs font-bold px-3 py-1.5 rounded-lg transition-all">
+                <UserPlus size={13} /> Add ASE
+              </button>
+              <button onClick={() => setShowAddTL(true)}
+                className="flex items-center gap-1 bg-[#00843D]/10 hover:bg-[#00843D]/20 text-[#00843D] text-xs font-bold px-3 py-1.5 rounded-lg transition-all">
+                <UserPlus size={13} /> Add TL
+              </button>
+            </div>
           </div>
           {teamLeads.map((tl) => (
             <div key={tl.id} className="bg-white rounded-xl shadow-sm p-4">
