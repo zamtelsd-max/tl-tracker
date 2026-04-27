@@ -48,10 +48,15 @@ function AddDSAModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [dealerCode, setDealerCode] = useState('');
   const [err, setErr] = useState('');
 
   const mutation = useMutation({
-    mutationFn: () => addDSA({ name: name.trim(), phone: phone.trim() || undefined }),
+    mutationFn: () => addDSA({
+      name: name.trim(),
+      phone: phone.trim() || undefined,
+      dealerCode: dealerCode.trim() || undefined,
+    }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['tl-dashboard'] });
       void queryClient.invalidateQueries({ queryKey: ['dsas'] });
@@ -78,44 +83,37 @@ function AddDSAModal({ onClose }: { onClose: () => void }) {
             <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-1 block">
               Full Name *
             </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Banda Mwanza"
-              autoFocus
-              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-[#00843D] transition-colors"
-            />
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Banda Mwanza" autoFocus
+              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-[#00843D] transition-colors" />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-1 block">
+              Dealer Code
+            </label>
+            <input type="text" value={dealerCode} onChange={(e) => setDealerCode(e.target.value.toUpperCase())}
+              placeholder="e.g. DLR-00123"
+              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base font-mono tracking-widest focus:outline-none focus:border-[#00843D] transition-colors" />
           </div>
 
           <div>
             <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-1 block">
               Phone Number (Optional)
             </label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
               placeholder="e.g. 0971234567"
-              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-[#00843D] transition-colors"
-            />
+              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-[#00843D] transition-colors" />
           </div>
 
           {err && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
-              {err}
-            </div>
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{err}</div>
           )}
 
           <button
-            onClick={() => {
-              setErr('');
-              if (!name.trim()) { setErr('DSA name is required'); return; }
-              mutation.mutate();
-            }}
+            onClick={() => { setErr(''); if (!name.trim()) { setErr('DSA name is required'); return; } mutation.mutate(); }}
             disabled={mutation.isPending}
-            className="w-full bg-[#00843D] hover:bg-[#006B31] disabled:bg-slate-300 text-white font-bold text-base rounded-2xl py-4 transition-all active:scale-98 mt-2"
-          >
+            className="w-full bg-[#00843D] hover:bg-[#006B31] disabled:bg-slate-300 text-white font-bold text-base rounded-2xl py-4 transition-all active:scale-98 mt-2">
             {mutation.isPending ? 'Adding...' : 'Add DSA'}
           </button>
         </div>

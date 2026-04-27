@@ -55,6 +55,7 @@ model DSA {
   teamLead   TeamLead  @relation(fields: [teamLeadId], references: [id])
   name       String
   phone      String?
+  dealerCode String?
   status     DSAStatus @default(ACTIVE)
   dateJoined DateTime  @default(now())
   createdAt  DateTime  @default(now())
@@ -70,19 +71,20 @@ enum DSAStatus {
 }
 
 model Activation {
-  id           String   @id @default(cuid())
-  teamLeadId   String
-  teamLead     TeamLead @relation(fields: [teamLeadId], references: [id])
-  dsaId        String
-  dsa          DSA      @relation(fields: [dsaId], references: [id])
-  customerName String?
-  count        Int      @default(1)
-  hourSlot     String
-  date         String
-  latitude     Float?
-  longitude    Float?
-  notes        String?
-  createdAt    DateTime @default(now())
+  id              String   @id @default(cuid())
+  teamLeadId      String
+  teamLead        TeamLead @relation(fields: [teamLeadId], references: [id])
+  dsaId           String
+  dsa             DSA      @relation(fields: [dsaId], references: [id])
+  customerName    String?
+  count           Int      @default(1)
+  registeredCount Int?
+  hourSlot        String
+  date            String
+  latitude        Float?
+  longitude       Float?
+  notes           String?
+  createdAt       DateTime @default(now())
 }
 
 model Alert {

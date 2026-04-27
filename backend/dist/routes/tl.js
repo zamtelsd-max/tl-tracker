@@ -116,7 +116,7 @@ router.post('/activations', [
             res.status(403).json({ success: false, error: 'Not a team lead' });
             return;
         }
-        const { dsaId, count, hourSlot, date, latitude, longitude, notes } = req.body;
+        const { dsaId, count, registeredCount, hourSlot, date, latitude, longitude, notes } = req.body;
         // Verify DSA belongs to this TL
         const dsa = await prisma_1.default.dSA.findFirst({
             where: { id: dsaId, teamLeadId },
@@ -130,6 +130,7 @@ router.post('/activations', [
                 teamLeadId,
                 dsaId,
                 count: Number(count),
+                registeredCount: registeredCount ? Number(registeredCount) : null,
                 hourSlot,
                 date,
                 latitude: latitude ? Number(latitude) : null,
@@ -198,9 +199,9 @@ router.post('/dsas', [(0, express_validator_1.body)('name').notEmpty()], async (
             res.status(403).json({ success: false, error: 'Not a team lead' });
             return;
         }
-        const { name, phone } = req.body;
+        const { name, phone, dealerCode } = req.body;
         const dsa = await prisma_1.default.dSA.create({
-            data: { teamLeadId, name, phone: phone || null },
+            data: { teamLeadId, name, phone: phone || null, dealerCode: dealerCode || null },
         });
         res.status(201).json({ success: true, data: dsa });
     }
@@ -223,12 +224,13 @@ router.patch('/dsas/:id', async (req, res) => {
             res.status(404).json({ success: false, error: 'DSA not found' });
             return;
         }
-        const { name, phone, status } = req.body;
+        const { name, phone, dealerCode, status } = req.body;
         const updated = await prisma_1.default.dSA.update({
             where: { id },
             data: {
                 name: name ?? dsa.name,
                 phone: phone ?? dsa.phone,
+                dealerCode: dealerCode !== undefined ? dealerCode : dsa.dealerCode,
                 status: status ?? dsa.status,
             },
         });

@@ -25,6 +25,7 @@ export const getActivations = async (date?: string) => {
 export const logActivation = async (data: {
   dsaId: string;
   count: number;
+  registeredCount?: number;
   hourSlot: string;
   date: string;
   latitude?: number;
@@ -40,12 +41,12 @@ export const getDSAs = async () => {
   return res.data;
 };
 
-export const addDSA = async (data: { name: string; phone?: string }) => {
+export const addDSA = async (data: { name: string; phone?: string; dealerCode?: string }) => {
   const res = await api.post<ApiResponse<DSA>>('/tl/dsas', data);
   return res.data;
 };
 
-export const updateDSA = async (id: string, data: { name?: string; phone?: string; status?: 'ACTIVE' | 'INACTIVE' }) => {
+export const updateDSA = async (id: string, data: { name?: string; phone?: string; dealerCode?: string; status?: 'ACTIVE' | 'INACTIVE' }) => {
   const res = await api.patch<ApiResponse<DSA>>(`/tl/dsas/${id}`, data);
   return res.data;
 };
@@ -90,6 +91,30 @@ export const getHSDDashboard = async () => {
 
 export const getLeaderboard = async () => {
   const res = await api.get<ApiResponse<HSDDashboard['leaderboard']>>('/hsd/leaderboard');
+  return res.data;
+};
+
+// ASE — add TL
+export const aseAddTeamLead = async (data: {
+  staffId: string; name: string; pin: string; region: string; allocatedTarget?: number;
+}) => {
+  const res = await api.post<ApiResponse<{ user: AdminUser; teamLead: unknown }>>('/ase/teamleads', data);
+  return res.data;
+};
+
+// ZBM — list ASEs in zone, list TLs, add TL
+export const zbmGetASEs = async () => {
+  const res = await api.get<ApiResponse<{ id: string; staffId: string; name: string; zone?: string; region?: string }[]>>('/zbm/ases');
+  return res.data;
+};
+export const zbmGetTeamLeads = async () => {
+  const res = await api.get<ApiResponse<unknown[]>>('/zbm/teamleads');
+  return res.data;
+};
+export const zbmAddTeamLead = async (data: {
+  staffId: string; name: string; pin: string; region: string; aseId?: string; allocatedTarget?: number;
+}) => {
+  const res = await api.post<ApiResponse<{ user: AdminUser; teamLead: unknown }>>('/zbm/teamleads', data);
   return res.data;
 };
 

@@ -128,10 +128,11 @@ router.post(
         return;
       }
 
-      const { dsaId, count, hourSlot, date, latitude, longitude, notes } =
+      const { dsaId, count, registeredCount, hourSlot, date, latitude, longitude, notes } =
         req.body as {
           dsaId: string;
           count: number;
+          registeredCount?: number;
           hourSlot: string;
           date: string;
           latitude?: number;
@@ -154,6 +155,7 @@ router.post(
           teamLeadId,
           dsaId,
           count: Number(count),
+          registeredCount: registeredCount ? Number(registeredCount) : null,
           hourSlot,
           date,
           latitude: latitude ? Number(latitude) : null,
@@ -234,10 +236,10 @@ router.post(
         return;
       }
 
-      const { name, phone } = req.body as { name: string; phone?: string };
+      const { name, phone, dealerCode } = req.body as { name: string; phone?: string; dealerCode?: string };
 
       const dsa = await prisma.dSA.create({
-        data: { teamLeadId, name, phone: phone || null },
+        data: { teamLeadId, name, phone: phone || null, dealerCode: dealerCode || null },
       });
 
       res.status(201).json({ success: true, data: dsa });
@@ -264,9 +266,10 @@ router.patch('/dsas/:id', async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
-    const { name, phone, status } = req.body as {
+    const { name, phone, dealerCode, status } = req.body as {
       name?: string;
       phone?: string;
+      dealerCode?: string;
       status?: 'ACTIVE' | 'INACTIVE';
     };
 
@@ -275,6 +278,7 @@ router.patch('/dsas/:id', async (req: AuthRequest, res: Response): Promise<void>
       data: {
         name: name ?? dsa.name,
         phone: phone ?? dsa.phone,
+        dealerCode: dealerCode !== undefined ? dealerCode : dsa.dealerCode,
         status: status ?? dsa.status,
       },
     });

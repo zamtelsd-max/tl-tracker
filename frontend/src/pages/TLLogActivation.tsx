@@ -12,6 +12,7 @@ export default function TLLogActivation() {
 
   const [dsaId, setDsaId] = useState('');
   const [count, setCount] = useState(1);
+  const [registeredCount, setRegisteredCount] = useState<string>('');
   const [hourSlot, setHourSlot] = useState(getCurrentHourSlot());
   const [date, setDate] = useState(formatDate());
   const [latitude, setLatitude] = useState<number | undefined>();
@@ -65,7 +66,11 @@ export default function TLLogActivation() {
   const handleSubmit = () => {
     setError('');
     if (!dsaId) { setError('Select a DSA'); return; }
-    mutation.mutate({ dsaId, count, hourSlot, date, latitude, longitude, notes: notes || undefined });
+    mutation.mutate({
+      dsaId, count, hourSlot, date, latitude, longitude,
+      notes: notes || undefined,
+      registeredCount: registeredCount ? Number(registeredCount) : undefined,
+    });
   };
 
   if (success) {
@@ -106,10 +111,27 @@ export default function TLLogActivation() {
           </div>
         </div>
 
+        {/* Registered Count */}
+        <div className="bg-white rounded-2xl shadow-sm p-4">
+          <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-2 block">
+            Number Registered by DSA
+          </label>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            value={registeredCount}
+            onChange={(e) => setRegisteredCount(e.target.value.replace(/\D/g, ''))}
+            placeholder="e.g. 12"
+            className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base text-center font-bold focus:outline-none focus:border-[#00843D] transition-colors"
+          />
+          <p className="text-xs text-slate-400 mt-1 text-center">Total SIMs registered by this DSA (from POS/system)</p>
+        </div>
+
         {/* Count */}
         <div className="bg-white rounded-2xl shadow-sm p-4">
           <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-2 block">
-            Count
+            Gross Adds Count (this entry)
           </label>
           <div className="flex items-center gap-4">
             <button

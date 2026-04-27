@@ -1,11 +1,120 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
-import { getZBMDashboard } from '../api';
-import { Map, TrendingUp, Users, Target } from 'lucide-react';
+import { getZBMDashboard, zbmAddTeamLead, zbmGetASEs } from '../api';
+import { Map, TrendingUp, Users, Target, UserPlus, X } from 'lucide-react';
+
+function AddTLModal({ onClose }: { onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [staffId, setStaffId] = useState('');
+  const [name, setName] = useState('');
+  const [pin, setPin] = useState('');
+  const [region, setRegion] = useState('');
+  const [aseId, setAseId] = useState('');
+  const [target, setTarget] = useState('50');
+  const [err, setErr] = useState('');
+
+  const { data: asesRes } = useQuery({
+    queryKey: ['zbm-ases'],
+    queryFn: async () => { const r = await zbmGetASEs(); return r.data ?? []; },
+  });
+  const ases = asesRes ?? [];
+
+  const mutation = useMutation({
+    mutationFn: () => zbmAddTeamLead({
+      staffId: staffId.trim().toUpperCase(),
+      name: name.trim(),
+      pin,
+      region: region.trim(),
+      aseId: aseId || undefined,
+      allocatedTarget: Number(target) || 50,
+    }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['zbm-dashboard'] });
+      onClose();
+    },
+    onError: (e: unknown) => {
+      const ax = e as { response?: { data?: { error?: string } } };
+      setErr(ax.response?.data?.error || 'Failed to add Team Lead');
+    },
+  });
+
+  const handleSubmit = () => {
+    setErr('');
+    if (!staffId.trim()) { setErr('Staff ID required'); return; }
+    if (!name.trim()) { setErr('Full name required'); return; }
+    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) { setErr('PIN must be exactly 4 digits'); return; }
+    if (!region.trim()) { setErr('Region required'); return; }
+    mutation.mutate();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+      <div className="bg-white rounded-t-3xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <UserPlus size={20} className="text-[#00843D]" /> Add Team Lead
+          </h2>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100">
+            <X size={20} className="text-slate-500" />
+          </button>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-1 block">Staff ID *</label>
+            <input type="text" value={staffId} onChange={e => setStaffId(e.target.value.toUpperCase())}
+              placeholder="e.g. TL-CE-04"
+              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base font-mono tracking-widest focus:outline-none focus:border-[#00843D] transition-colors" />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-1 block">Full Name *</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. John Mwila"
+              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-[#00843D] transition-colors" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-1 block">PIN * (4 digits)</label>
+              <input type="password" inputMode="numeric" maxLength={4} value={pin}
+                onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="• • • •"
+                className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-center text-base tracking-widest focus:outline-none focus:border-[#00843D] transition-colors" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-1 block">Daily Target</label>
+              <input type="number" value={target} onChange={e => setTarget(e.target.value)} min={1} placeholder="50"
+                className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-[#00843D] transition-colors" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-1 block">Region *</label>
+            <input type="text" value={region} onChange={e => setRegion(e.target.value)} placeholder="e.g. Central South"
+              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-[#00843D] transition-colors" />
+          </div>
+          {ases.length > 0 && (
+            <div>
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-1 block">Assign to ASE (Optional)</label>
+              <select value={aseId} onChange={e => setAseId(e.target.value)}
+                className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base bg-white focus:outline-none focus:border-[#00843D] transition-colors">
+                <option value="">— Unassigned —</option>
+                {ases.map(a => <option key={a.id} value={a.id}>{a.name} ({a.staffId})</option>)}
+              </select>
+            </div>
+          )}
+          {err && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{err}</div>}
+          <button onClick={handleSubmit} disabled={mutation.isPending}
+            className="w-full bg-[#00843D] hover:bg-[#006B31] disabled:bg-slate-300 text-white font-bold text-base rounded-2xl py-4 transition-all active:scale-98 mt-1">
+            {mutation.isPending ? 'Creating...' : 'Create Team Lead'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ZBMDashboard() {
+  const [showAddTL, setShowAddTL] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ['zbm-dashboard'],
     queryFn: async () => {
@@ -47,6 +156,7 @@ export default function ZBMDashboard() {
 
   return (
     <Layout title="ZBM Dashboard" subtitle={data?.zone ? `Zone: ${data.zone}` : undefined}>
+      {showAddTL && <AddTLModal onClose={() => setShowAddTL(false)} />}
       <div className="px-4 py-4 space-y-4">
 
         {/* Summary */}
@@ -148,7 +258,13 @@ export default function ZBMDashboard() {
 
         {/* Team Lead Table */}
         <div className="space-y-3">
-          <p className="text-sm font-bold text-slate-700">Team Lead Details</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-slate-700">Team Lead Details</p>
+            <button onClick={() => setShowAddTL(true)}
+              className="flex items-center gap-1 bg-[#00843D]/10 hover:bg-[#00843D]/20 text-[#00843D] text-xs font-bold px-3 py-1.5 rounded-lg transition-all">
+              <UserPlus size={13} /> Add TL
+            </button>
+          </div>
           {teamLeads.map((tl) => (
             <div key={tl.id} className="bg-white rounded-xl shadow-sm p-4">
               <div className="flex items-center justify-between mb-1">
