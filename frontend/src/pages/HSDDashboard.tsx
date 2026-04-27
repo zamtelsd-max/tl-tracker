@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
 import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
@@ -8,6 +9,7 @@ import { Globe, Trophy, TrendingDown, Target } from 'lucide-react';
 const ZONE_COLORS = ['#00843D', '#E4007C', '#F59E0B', '#3B82F6', '#8B5CF6', '#EF4444'];
 
 export default function HSDDashboard() {
+  const navigate = useNavigate();
   const { data, isLoading } = useQuery({
     queryKey: ['hsd-dashboard'],
     queryFn: async () => {
@@ -175,9 +177,17 @@ export default function HSDDashboard() {
           </div>
         )}
 
+        {/* Leaderboard Button */}
+        <button
+          onClick={() => navigate('/leaderboard')}
+          className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-white font-bold text-center py-4 rounded-2xl shadow-lg transition-all active:scale-98 flex items-center justify-center gap-2"
+        >
+          <Trophy size={20} /> View Full Leaderboard
+        </button>
+
         {/* Export Button */}
         <a
-          href={`${import.meta.env.VITE_API_URL || '/api'}/v1/hsd/export?format=xlsx`}
+          href={`${import.meta.env.VITE_API_URL || '/api'}/hsd/export?format=xlsx`}
           className="block w-full bg-[#00843D] hover:bg-[#006B31] text-white font-bold text-center py-4 rounded-2xl shadow-lg transition-all active:scale-98"
           download
         >

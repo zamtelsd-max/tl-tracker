@@ -7,6 +7,7 @@ import ASEDashboard from './pages/ASEDashboard';
 import ZBMDashboard from './pages/ZBMDashboard';
 import HSDDashboard from './pages/HSDDashboard';
 import AdminPanel from './pages/AdminPanel';
+import LeaderboardPage from './pages/LeaderboardPage';
 import type { ReactNode } from 'react';
 
 function ProtectedRoute({ children, allowedRoles }: { children: ReactNode; allowedRoles: string[] }) {
@@ -82,6 +83,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['ADMIN']}>
               <AdminPanel />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/leaderboard"
+          element={
+            <ProtectedRoute allowedRoles={['HSD', 'ZBM', 'ASE', 'ADMIN']}>
+              <LeaderboardPage />
             </ProtectedRoute>
           }
         />

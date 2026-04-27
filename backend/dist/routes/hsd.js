@@ -96,24 +96,121 @@ router.get('/dashboard', async (_req, res) => {
         res.status(500).json({ success: false, error: 'Server error' });
     }
 });
-// GET /api/v1/hsd/leaderboard
-router.get('/leaderboard', async (_req, res) => {
+// GET /api/v1/hsd/leaderboard?scope=national|zone&zone=Lusaka&level=tl|ase|zbm
+router.get('/leaderboard', async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0];
-        const teamLeads = await prisma_1.default.teamLead.findMany({
-            include: { user: true },
-        });
-        const ranked = await Promise.all(teamLeads.map(async (tl) => {
-            const total = await prisma_1.default.activation.aggregate({
-                where: { teamLeadId: tl.id, date: today },
-                _sum: { count: true },
+        const level = req.query.level || 'tl'; // tl | ase | zbm
+        const scope = req.query.scope || 'national';
+        const filterZone = req.query.zone;
+        if (level === 'tl') {
+            const where = filterZone ? { zone: filterZone } : {};
+            const teamLeads = await prisma_1.default.teamLead.findMany({
+                where,
+                include: { user: true, dsas: { where: { status: 'ACTIVE' } }, ase: true },
             });
-            const activations = total._sum.count || 0;
-            const attainment = Math.round((activations / tl.allocatedTarget) * 100);
-            return { id: tl.id, name: tl.user.name, zone: tl.zone, activations, attainment };
-        }));
-        ranked.sort((a, b) => b.activations - a.activations);
-        res.json({ success: true, data: ranked });
+            const ranked = await Promise.all(teamLeads.map(async (tl) => {
+                const agg = await prisma_1.default.activation.aggregate({
+                    where: { teamLeadId: tl.id, date: today },
+                    _sum: { count: true },
+                });
+                const activations = agg._sum.count || 0;
+                const attainment = tl.allocatedTarget > 0
+                    ? Math.round((activations / tl.allocatedTarget) * 100) : 0;
+                return {
+                    id: tl.id,
+                    name: tl.user.name,
+                    staffId: tl.user.staffId,
+                    zone: tl.zone ?? 'Unknown',
+                    region: tl.region ?? '',
+                    aseName: tl.ase?.name ?? null,
+                    dsaCount: tl.dsas.length,
+                    activations,
+                    target: tl.allocatedTarget,
+                    attainment,
+                };
+            }));
+            ranked.sort((a, b) => b.activations - a.activations || b.attainment - a.attainment);
+            res.json({ success: true, data: { level: 'tl', scope, entries: ranked } });
+        }
+        else if (level === 'ase') {
+            // Aggregate by ASE user
+            const ases = await prisma_1.default.user.findMany({
+                where: { role: 'ASE', active: true, ...(filterZone ? { zone: filterZone } : {}) },
+                include: { teamLeads: { include: { dsas: { where: { status: 'ACTIVE' } } } } },
+            });
+            const ranked = await Promise.all(ases.map(async (ase) => {
+                let activations = 0;
+                let target = 0;
+                let dsaCount = 0;
+                for (const tl of ase.teamLeads) {
+                    const agg = await prisma_1.default.activation.aggregate({
+                        where: { teamLeadId: tl.id, date: today },
+                        _sum: { count: true },
+                    });
+                    activations += agg._sum.count || 0;
+                    target += tl.allocatedTarget;
+                    dsaCount += tl.dsas.length;
+                }
+                const attainment = target > 0 ? Math.round((activations / target) * 100) : 0;
+                return {
+                    id: ase.id,
+                    name: ase.name,
+                    staffId: ase.staffId,
+                    zone: ase.zone ?? 'Unknown',
+                    region: ase.region ?? '',
+                    tlCount: ase.teamLeads.length,
+                    dsaCount,
+                    activations,
+                    target,
+                    attainment,
+                };
+            }));
+            ranked.sort((a, b) => b.activations - a.activations || b.attainment - a.attainment);
+            res.json({ success: true, data: { level: 'ase', scope, entries: ranked } });
+        }
+        else if (level === 'zbm') {
+            // Aggregate by zone
+            const zbms = await prisma_1.default.user.findMany({
+                where: { role: 'ZBM', active: true },
+            });
+            const ranked = await Promise.all(zbms.map(async (zbm) => {
+                const zone = zbm.zone;
+                const tls = await prisma_1.default.teamLead.findMany({
+                    where: zone ? { zone } : {},
+                    include: { dsas: { where: { status: 'ACTIVE' } } },
+                });
+                let activations = 0;
+                let target = 0;
+                let dsaCount = 0;
+                for (const tl of tls) {
+                    const agg = await prisma_1.default.activation.aggregate({
+                        where: { teamLeadId: tl.id, date: today },
+                        _sum: { count: true },
+                    });
+                    activations += agg._sum.count || 0;
+                    target += tl.allocatedTarget;
+                    dsaCount += tl.dsas.length;
+                }
+                const attainment = target > 0 ? Math.round((activations / target) * 100) : 0;
+                return {
+                    id: zbm.id,
+                    name: zbm.name,
+                    staffId: zbm.staffId,
+                    zone: zone ?? 'Unknown',
+                    tlCount: tls.length,
+                    dsaCount,
+                    activations,
+                    target,
+                    attainment,
+                };
+            }));
+            ranked.sort((a, b) => b.activations - a.activations || b.attainment - a.attainment);
+            res.json({ success: true, data: { level: 'zbm', scope, entries: ranked } });
+        }
+        else {
+            res.status(400).json({ success: false, error: 'Invalid level. Use tl, ase, or zbm' });
+        }
     }
     catch (err) {
         console.error(err);

@@ -4,7 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
 import { getZBMDashboard, zbmAddTeamLead, zbmGetASEs, zbmAddASE } from '../api';
-import { Map, TrendingUp, Users, Target, UserPlus, X } from 'lucide-react';
+import { Map, TrendingUp, Users, Target, UserPlus, X, Trophy } from 'lucide-react';
 
 function AddASEModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -197,6 +197,7 @@ function AddTLModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function ZBMDashboard() {
+  const navigate = useNavigate();
   const [showAddTL, setShowAddTL] = useState(false);
   const [showAddASE, setShowAddASE] = useState(false);
   const { data, isLoading } = useQuery({
@@ -245,6 +246,12 @@ export default function ZBMDashboard() {
       <div className="px-4 py-4 space-y-4">
 
         {/* Summary */}
+        {/* Leaderboard shortcut */}
+        <button onClick={() => navigate('/leaderboard')}
+          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-white font-bold py-3 rounded-2xl shadow transition-all active:scale-98">
+          <Trophy size={18} /> Zone Leaderboard
+        </button>
+
         {summary && (
           <>
             <div className="grid grid-cols-2 gap-3">

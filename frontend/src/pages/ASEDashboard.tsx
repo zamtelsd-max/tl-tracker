@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Users, TrendingUp, AlertTriangle, Activity, UserPlus, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Users, TrendingUp, AlertTriangle, Activity, UserPlus, X, Trophy } from 'lucide-react';
 import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
 import { getASEDashboard, getASEAlerts, aseAddTeamLead } from '../api';
@@ -116,6 +117,7 @@ function AddTLModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function ASEDashboard() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'teams' | 'alerts'>('teams');
   const [showAddTL, setShowAddTL] = useState(false);
 
@@ -171,6 +173,12 @@ export default function ASEDashboard() {
             <StatCard label="Exceptions" value={summary.exceptions} sub="alerts today" color={summary.exceptions > 0 ? 'pink' : 'slate'} icon={<AlertTriangle size={16} />} />
           </div>
         )}
+
+        {/* Leaderboard shortcut */}
+        <button onClick={() => navigate('/leaderboard')}
+          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-white font-bold py-3 rounded-2xl shadow transition-all active:scale-98">
+          <Trophy size={18} /> Team Leaderboard
+        </button>
 
         {/* Tabs */}
         <div className="flex gap-1 bg-slate-200 p-1 rounded-xl">

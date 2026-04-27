@@ -186,6 +186,29 @@ router.get('/alerts', async (req, res) => {
         res.status(500).json({ success: false, error: 'Server error' });
     }
 });
+// GET /api/v1/ase/leaderboard — TL leaderboard scoped to this ASE
+router.get('/leaderboard', async (req, res) => {
+    try {
+        const { userId } = req.user;
+        const today = new Date().toISOString().split('T')[0];
+        const tls = await prisma_1.default.teamLead.findMany({
+            where: { aseId: userId },
+            include: { user: true, dsas: { where: { status: 'ACTIVE' } } },
+        });
+        const ranked = await Promise.all(tls.map(async (tl) => {
+            const agg = await prisma_1.default.activation.aggregate({ where: { teamLeadId: tl.id, date: today }, _sum: { count: true } });
+            const activations = agg._sum.count || 0;
+            const attainment = tl.allocatedTarget > 0 ? Math.round((activations / tl.allocatedTarget) * 100) : 0;
+            return { id: tl.id, name: tl.user.name, staffId: tl.user.staffId, zone: tl.zone ?? 'Unknown', region: tl.region ?? '', dsaCount: tl.dsas.length, activations, target: tl.allocatedTarget, attainment };
+        }));
+        ranked.sort((a, b) => b.activations - a.activations || b.attainment - a.attainment);
+        res.json({ success: true, data: { level: 'tl', entries: ranked } });
+    }
+    catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: 'Server error' });
+    }
+});
 // POST /api/v1/ase/teamleads — create a new TL under this ASE
 router.post('/teamleads', [
     (0, express_validator_1.body)('staffId').notEmpty().withMessage('Staff ID required'),

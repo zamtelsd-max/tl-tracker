@@ -186,6 +186,53 @@ router.post('/teamleads', [
         res.status(500).json({ success: false, error: 'Server error' });
     }
 });
+// GET /api/v1/zbm/leaderboard?level=tl|ase — scoped to this ZBM's zone
+router.get('/leaderboard', async (req, res) => {
+    try {
+        const { userId } = req.user;
+        const zbmUser = await prisma_1.default.user.findUnique({ where: { id: userId } });
+        const zone = zbmUser?.zone;
+        const level = req.query.level || 'tl';
+        const today = new Date().toISOString().split('T')[0];
+        if (level === 'tl') {
+            const tls = await prisma_1.default.teamLead.findMany({
+                where: zone ? { zone } : {},
+                include: { user: true, dsas: { where: { status: 'ACTIVE' } }, ase: true },
+            });
+            const ranked = await Promise.all(tls.map(async (tl) => {
+                const agg = await prisma_1.default.activation.aggregate({ where: { teamLeadId: tl.id, date: today }, _sum: { count: true } });
+                const activations = agg._sum.count || 0;
+                const attainment = tl.allocatedTarget > 0 ? Math.round((activations / tl.allocatedTarget) * 100) : 0;
+                return { id: tl.id, name: tl.user.name, staffId: tl.user.staffId, zone: tl.zone ?? 'Unknown', region: tl.region ?? '', aseName: tl.ase?.name ?? null, dsaCount: tl.dsas.length, activations, target: tl.allocatedTarget, attainment };
+            }));
+            ranked.sort((a, b) => b.activations - a.activations || b.attainment - a.attainment);
+            res.json({ success: true, data: { level: 'tl', entries: ranked } });
+        }
+        else if (level === 'ase') {
+            const ases = await prisma_1.default.user.findMany({ where: { role: 'ASE', active: true, ...(zone ? { zone } : {}) }, include: { teamLeads: { include: { dsas: { where: { status: 'ACTIVE' } } } } } });
+            const ranked = await Promise.all(ases.map(async (ase) => {
+                let activations = 0, target = 0, dsaCount = 0;
+                for (const tl of ase.teamLeads) {
+                    const agg = await prisma_1.default.activation.aggregate({ where: { teamLeadId: tl.id, date: today }, _sum: { count: true } });
+                    activations += agg._sum.count || 0;
+                    target += tl.allocatedTarget;
+                    dsaCount += tl.dsas.length;
+                }
+                const attainment = target > 0 ? Math.round((activations / target) * 100) : 0;
+                return { id: ase.id, name: ase.name, staffId: ase.staffId, zone: ase.zone ?? 'Unknown', region: ase.region ?? '', tlCount: ase.teamLeads.length, dsaCount, activations, target, attainment };
+            }));
+            ranked.sort((a, b) => b.activations - a.activations || b.attainment - a.attainment);
+            res.json({ success: true, data: { level: 'ase', entries: ranked } });
+        }
+        else {
+            res.status(400).json({ success: false, error: 'Invalid level' });
+        }
+    }
+    catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: 'Server error' });
+    }
+});
 // GET /api/v1/zbm/teamleads — list all TLs in this ZBM's zone
 router.get('/teamleads', async (req, res) => {
     try {
