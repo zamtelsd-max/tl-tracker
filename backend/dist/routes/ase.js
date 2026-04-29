@@ -260,7 +260,7 @@ router.post('/teamleads', [
 // GET /api/v1/ase/available-teamleads — all TLs not yet taken by another ASE (+ own TLs)
 router.get('/available-teamleads', async (req, res) => {
     try {
-        const aseId = req.user.id;
+        const aseId = req.user.userId;
         // Return all TLs where aseId is null OR aseId is this ASE
         // (TLs taken by a different ASE are excluded entirely)
         const tls = await prisma_1.default.teamLead.findMany({
@@ -292,7 +292,7 @@ router.get('/available-teamleads', async (req, res) => {
 // POST /api/v1/ase/link-teamlead — link an existing TL to this ASE
 router.post('/link-teamlead', async (req, res) => {
     try {
-        const aseId = req.user.id;
+        const aseId = req.user.userId;
         const { teamLeadId } = req.body;
         if (!teamLeadId) {
             res.status(400).json({ error: 'teamLeadId required' });
@@ -320,7 +320,7 @@ router.post('/link-teamlead', async (req, res) => {
 // DELETE /api/v1/ase/link-teamlead/:id — unlink a TL from this ASE
 router.delete('/link-teamlead/:id', async (req, res) => {
     try {
-        const aseId = req.user.id;
+        const aseId = req.user.userId;
         const tl = await prisma_1.default.teamLead.findUnique({ where: { id: req.params.id } });
         if (!tl || tl.aseId !== aseId) {
             res.status(403).json({ error: 'Not authorised' });
