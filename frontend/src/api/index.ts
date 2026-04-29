@@ -156,12 +156,13 @@ export const deleteUser = async (id: string) => {
 
 // ── ASE: available TLs + link/unlink ────────────────────────────────────────
 export const aseGetAvailableTLs = () =>
-  api.get<ApiResponse<{
+  api.get<{
     id: string; region: string | null; zone: string | null;
     aseId: string | null; allocatedTarget: number;
+    pickable: boolean; mine: boolean; takenBy: string | null;
     user: { staffId: string; name: string };
     _count: { dsas: number };
-  }[]>>('/ase/available-teamleads').then(r => r.data.data!);
+  }[]>('/ase/available-teamleads').then(r => r.data);
 
 export const aseLinkTeamLead = (teamLeadId: string) =>
   api.post<ApiResponse<unknown>>('/ase/link-teamlead', { teamLeadId }).then(r => r.data);

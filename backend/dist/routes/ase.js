@@ -257,26 +257,33 @@ router.post('/teamleads', [
         res.status(500).json({ success: false, error: 'Server error' });
     }
 });
-// GET /api/v1/ase/available-teamleads — all TLs not yet linked to an ASE (or linked to this ASE)
+// GET /api/v1/ase/available-teamleads — all TLs in same zone; marks pickable vs taken
 router.get('/available-teamleads', async (req, res) => {
     try {
         const aseId = req.user.id;
+        // Get this ASE's zone
+        const aseUser = await prisma_1.default.user.findUnique({ where: { id: aseId }, select: { zone: true } });
+        const zone = aseUser?.zone;
+        // Return ALL TLs in same zone (or all if zone is null), with availability flag
         const tls = await prisma_1.default.teamLead.findMany({
-            where: {
-                OR: [
-                    { aseId: null },
-                    { aseId: aseId },
-                ],
-            },
+            where: zone ? { zone } : {},
             orderBy: { createdAt: 'asc' },
             select: {
                 id: true, region: true, zone: true,
                 aseId: true, allocatedTarget: true,
                 user: { select: { staffId: true, name: true } },
+                ase: { select: { name: true, staffId: true } },
                 _count: { select: { dsas: true } },
             },
         });
-        res.json(tls);
+        // Add availability info: pickable = aseId is null OR already mine
+        const result = tls.map(tl => ({
+            ...tl,
+            pickable: tl.aseId === null || tl.aseId === aseId,
+            mine: tl.aseId === aseId,
+            takenBy: tl.aseId && tl.aseId !== aseId ? tl.ase?.name ?? 'Another ASE' : null,
+        }));
+        res.json(result);
     }
     catch {
         res.status(500).json({ error: 'Failed to fetch available team leads' });

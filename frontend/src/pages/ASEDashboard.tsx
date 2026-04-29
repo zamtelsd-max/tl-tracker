@@ -132,23 +132,45 @@ function AddTLModal({ onClose }: { onClose: () => void }) {
               {loadingTLs ? (
                 <div className="text-center py-8 text-slate-400 text-sm">Loading team leads...</div>
               ) : filteredTLs.length === 0 ? (
-                <div className="text-center py-8 text-slate-400 text-sm">No available team leads found</div>
+                <div className="text-center py-8 text-slate-400 text-sm">No team leads found in your zone</div>
               ) : (
                 <div className="space-y-2">
+                  {/* Summary counts */}
+                  <div className="flex gap-2 text-xs mb-1">
+                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">
+                      {filteredTLs.filter(t => t.mine).length} yours
+                    </span>
+                    <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-full font-semibold">
+                      {filteredTLs.filter(t => !t.aseId).length} unassigned
+                    </span>
+                    <span className="bg-red-100 text-red-600 px-2 py-1 rounded-full font-semibold">
+                      {filteredTLs.filter(t => t.takenBy).length} taken
+                    </span>
+                  </div>
                   {filteredTLs.map(tl => (
-                    <button key={tl.id} onClick={() => setSelectedId(tl.id)}
-                      className={`w-full text-left p-3 rounded-2xl border-2 transition-all ${selectedId === tl.id ? 'border-[#00843D] bg-green-50' : 'border-slate-100 bg-slate-50 hover:border-slate-300'}`}>
+                    <button key={tl.id}
+                      onClick={() => tl.pickable ? setSelectedId(tl.id) : undefined}
+                      disabled={!tl.pickable}
+                      className={`w-full text-left p-3 rounded-2xl border-2 transition-all
+                        ${!tl.pickable ? 'opacity-50 cursor-not-allowed border-slate-100 bg-slate-50' :
+                          selectedId === tl.id ? 'border-[#00843D] bg-green-50' :
+                          'border-slate-100 bg-slate-50 hover:border-slate-300 active:scale-98'}`}>
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-bold text-slate-800 text-sm">{tl.user.name}</p>
                           <p className="text-xs text-slate-500">{tl.user.staffId}{tl.region ? ` · ${tl.region}` : ''}</p>
                           <p className="text-xs text-slate-400 mt-0.5">{tl._count.dsas} DSAs · Target: {tl.allocatedTarget}</p>
+                          {tl.takenBy && (
+                            <p className="text-xs text-red-500 mt-0.5 font-semibold">Mapped to: {tl.takenBy}</p>
+                          )}
                         </div>
                         <div className="flex flex-col items-end gap-1">
-                          {tl.aseId ? (
-                            <span className="text-xs bg-[#00843D] text-white px-2 py-0.5 rounded-full">Already yours</span>
+                          {tl.mine ? (
+                            <span className="text-xs bg-[#00843D] text-white px-2 py-0.5 rounded-full">✓ Yours</span>
+                          ) : tl.takenBy ? (
+                            <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Taken</span>
                           ) : (
-                            <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">Unassigned</span>
+                            <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">Free</span>
                           )}
                           {selectedId === tl.id && <CheckCircle2 size={18} className="text-[#00843D]" />}
                         </div>
