@@ -257,31 +257,31 @@ router.post('/teamleads', [
         res.status(500).json({ success: false, error: 'Server error' });
     }
 });
-// GET /api/v1/ase/available-teamleads — all TLs in same zone; marks pickable vs taken
+// GET /api/v1/ase/available-teamleads — all TLs not yet taken by another ASE (+ own TLs)
 router.get('/available-teamleads', async (req, res) => {
     try {
         const aseId = req.user.id;
-        // Get this ASE's zone
-        const aseUser = await prisma_1.default.user.findUnique({ where: { id: aseId }, select: { zone: true } });
-        const zone = aseUser?.zone;
-        // Return ALL TLs in same zone (or all if zone is null), with availability flag
+        // Return all TLs where aseId is null OR aseId is this ASE
+        // (TLs taken by a different ASE are excluded entirely)
         const tls = await prisma_1.default.teamLead.findMany({
-            where: zone ? { zone } : {},
+            where: {
+                OR: [
+                    { aseId: null },
+                    { aseId: aseId },
+                ],
+            },
             orderBy: { createdAt: 'asc' },
             select: {
                 id: true, region: true, zone: true,
                 aseId: true, allocatedTarget: true,
                 user: { select: { staffId: true, name: true } },
-                ase: { select: { name: true, staffId: true } },
                 _count: { select: { dsas: true } },
             },
         });
-        // Add availability info: pickable = aseId is null OR already mine
         const result = tls.map(tl => ({
             ...tl,
-            pickable: tl.aseId === null || tl.aseId === aseId,
+            pickable: true,
             mine: tl.aseId === aseId,
-            takenBy: tl.aseId && tl.aseId !== aseId ? tl.ase?.name ?? 'Another ASE' : null,
         }));
         res.json(result);
     }

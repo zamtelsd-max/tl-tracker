@@ -159,7 +159,7 @@ export const aseGetAvailableTLs = () =>
   api.get<{
     id: string; region: string | null; zone: string | null;
     aseId: string | null; allocatedTarget: number;
-    pickable: boolean; mine: boolean; takenBy: string | null;
+    pickable: boolean; mine: boolean;
     user: { staffId: string; name: string };
     _count: { dsas: number };
   }[]>('/ase/available-teamleads').then(r => r.data);
