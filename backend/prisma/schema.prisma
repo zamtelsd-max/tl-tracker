@@ -46,6 +46,7 @@ model TeamLead {
 
   dsas        DSA[]
   activations Activation[]
+  registeredNumbers RegisteredNumber[]
   alerts      Alert[]
 }
 
@@ -61,6 +62,7 @@ model DSA {
   createdAt  DateTime  @default(now())
 
   activations Activation[]
+  registeredNumbers RegisteredNumber[]
 
   @@unique([teamLeadId, name])
 }
@@ -109,4 +111,15 @@ enum AlertStatus {
   SENT
   READ
   RESOLVED
+}
+
+model RegisteredNumber {
+  id         String   @id @default(cuid())
+  teamLeadId String
+  teamLead   TeamLead @relation(fields: [teamLeadId], references: [id])
+  dsaId      String?
+  dsa        DSA?     @relation(fields: [dsaId], references: [id])
+  msisdn     String
+  date       String
+  createdAt  DateTime @default(now())
 }

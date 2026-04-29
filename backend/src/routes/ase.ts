@@ -284,3 +284,62 @@ router.post(
 );
 
 export { router as aseRouter };
+
+// GET /api/v1/ase/available-teamleads — all TLs not yet linked to an ASE (or linked to this ASE)
+router.get('/available-teamleads', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const aseId = req.user!.id;
+    const tls = await prisma.teamLead.findMany({
+      where: {
+        OR: [
+          { aseId: null },
+          { aseId: aseId },
+        ],
+      },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true, region: true, zone: true,
+        aseId: true, allocatedTarget: true,
+        user: { select: { staffId: true, name: true } },
+        _count: { select: { dsas: true } },
+      },
+    });
+    res.json(tls);
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch available team leads' });
+  }
+});
+
+// POST /api/v1/ase/link-teamlead — link an existing TL to this ASE
+router.post('/link-teamlead', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const aseId = req.user!.id;
+    const { teamLeadId } = req.body as { teamLeadId: string };
+    if (!teamLeadId) { res.status(400).json({ error: 'teamLeadId required' }); return; }
+    const tl = await prisma.teamLead.findUnique({ where: { id: teamLeadId } });
+    if (!tl) { res.status(404).json({ error: 'Team Lead not found' }); return; }
+    if (tl.aseId && tl.aseId !== aseId) {
+      res.status(409).json({ error: 'This TL is already linked to another ASE' }); return;
+    }
+    const updated = await prisma.teamLead.update({
+      where: { id: teamLeadId },
+      data: { aseId },
+    });
+    res.json(updated);
+  } catch {
+    res.status(500).json({ error: 'Failed to link team lead' });
+  }
+});
+
+// DELETE /api/v1/ase/link-teamlead/:id — unlink a TL from this ASE
+router.delete('/link-teamlead/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const aseId = req.user!.id;
+    const tl = await prisma.teamLead.findUnique({ where: { id: req.params.id } });
+    if (!tl || tl.aseId !== aseId) { res.status(403).json({ error: 'Not authorised' }); return; }
+    await prisma.teamLead.update({ where: { id: req.params.id }, data: { aseId: null } });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Failed to unlink team lead' });
+  }
+});

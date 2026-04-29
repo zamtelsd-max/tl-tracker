@@ -8,6 +8,7 @@ import ZBMDashboard from './pages/ZBMDashboard';
 import HSDDashboard from './pages/HSDDashboard';
 import AdminPanel from './pages/AdminPanel';
 import LeaderboardPage from './pages/LeaderboardPage';
+import TLLogNumbers from './pages/TLLogNumbers';
 import type { ReactNode } from 'react';
 
 function ProtectedRoute({ children, allowedRoles }: { children: ReactNode; allowedRoles: string[] }) {
@@ -91,6 +92,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['HSD', 'ZBM', 'ASE', 'ADMIN']}>
               <LeaderboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tl/log-numbers"
+          element={
+            <ProtectedRoute allowedRoles={['TL']}>
+              <TLLogNumbers />
             </ProtectedRoute>
           }
         />

@@ -153,3 +153,27 @@ export const deleteUser = async (id: string) => {
   const res = await api.delete<ApiResponse<{ message: string }>>(`/admin/users/${id}`);
   return res.data;
 };
+
+// ── ASE: available TLs + link/unlink ────────────────────────────────────────
+export const aseGetAvailableTLs = () =>
+  api.get<ApiResponse<{
+    id: string; region: string | null; zone: string | null;
+    aseId: string | null; allocatedTarget: number;
+    user: { staffId: string; name: string };
+    _count: { dsas: number };
+  }[]>>('/ase/available-teamleads').then(r => r.data.data!);
+
+export const aseLinkTeamLead = (teamLeadId: string) =>
+  api.post<ApiResponse<unknown>>('/ase/link-teamlead', { teamLeadId }).then(r => r.data);
+
+export const aseUnlinkTeamLead = (teamLeadId: string) =>
+  api.delete<ApiResponse<unknown>>(`/ase/link-teamlead/${teamLeadId}`).then(r => r.data);
+
+// ── TL: registered numbers ───────────────────────────────────────────────────
+export const tlLogRegisteredNumbers = (dsaId: string, numbers: string[]) =>
+  api.post<ApiResponse<{ saved: number; skipped: number; duplicates: string[] }>>('/tl/registered-numbers', { dsaId, numbers }).then(r => r.data.data!);
+
+export const tlGetRegisteredNumbers = (dsaId?: string, date?: string) =>
+  api.get<ApiResponse<{ id: string; msisdn: string; date: string; dsa: { name: string; dealerCode: string | null } }[]>>(
+    '/tl/registered-numbers', { params: { dsaId, date } }
+  ).then(r => r.data.data!);

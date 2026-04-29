@@ -353,4 +353,77 @@ router.get('/heatmap', async (req, res) => {
         res.status(500).json({ success: false, error: 'Server error' });
     }
 });
+// POST /api/v1/tl/registered-numbers — log registered Zamtel numbers for a DSA
+router.post('/registered-numbers', async (req, res) => {
+    try {
+        const tlId = req.user.id;
+        const { dsaId, numbers } = req.body;
+        if (!dsaId) {
+            res.status(400).json({ error: 'dsaId required' });
+            return;
+        }
+        if (!Array.isArray(numbers) || numbers.length === 0) {
+            res.status(400).json({ error: 'numbers array required' });
+            return;
+        }
+        // Validate: Zamtel format — 096/076 followed by 7 digits
+        const ZAMTEL_RE = /^(096|076)\d{7}$/;
+        const invalid = numbers.filter(n => !ZAMTEL_RE.test(n.replace(/\s/g, '')));
+        if (invalid.length > 0) {
+            res.status(400).json({ error: `Invalid Zamtel numbers: ${invalid.join(', ')}. Use 096XXXXXXX or 076XXXXXXX format.` });
+            return;
+        }
+        // Verify DSA belongs to this TL
+        const dsa = await prisma_1.default.dSA.findFirst({ where: { id: dsaId, teamLeadId: tlId } });
+        if (!dsa) {
+            res.status(403).json({ error: 'DSA not found under your team' });
+            return;
+        }
+        const date = new Date().toISOString().slice(0, 10);
+        // Check for duplicates already logged today
+        const existing = await prisma_1.default.registeredNumber.findMany({
+            where: { teamLeadId: tlId, dsaId, date, msisdn: { in: numbers.map(n => n.replace(/\s/g, '')) } },
+            select: { msisdn: true },
+        });
+        const existingNums = existing.map(e => e.msisdn);
+        const newNumbers = numbers.map(n => n.replace(/\s/g, '')).filter(n => !existingNums.includes(n));
+        if (newNumbers.length === 0) {
+            res.status(409).json({ error: 'All numbers already logged today', duplicates: existingNums });
+            return;
+        }
+        const created = await prisma_1.default.registeredNumber.createMany({
+            data: newNumbers.map(msisdn => ({ teamLeadId: tlId, dsaId, msisdn, date })),
+        });
+        res.status(201).json({
+            saved: created.count,
+            skipped: numbers.length - newNumbers.length,
+            duplicates: existingNums,
+        });
+    }
+    catch (err) {
+        console.error('registered-numbers error:', err);
+        res.status(500).json({ error: 'Failed to save numbers' });
+    }
+});
+// GET /api/v1/tl/registered-numbers?dsaId=xxx&date=yyyy-mm-dd
+router.get('/registered-numbers', async (req, res) => {
+    try {
+        const tlId = req.user.id;
+        const { dsaId, date } = req.query;
+        const today = new Date().toISOString().slice(0, 10);
+        const numbers = await prisma_1.default.registeredNumber.findMany({
+            where: {
+                teamLeadId: tlId,
+                ...(dsaId ? { dsaId } : {}),
+                date: date || today,
+            },
+            include: { dsa: { select: { name: true, dealerCode: true } } },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.json(numbers);
+    }
+    catch {
+        res.status(500).json({ error: 'Failed to fetch numbers' });
+    }
+});
 //# sourceMappingURL=tl.js.map
