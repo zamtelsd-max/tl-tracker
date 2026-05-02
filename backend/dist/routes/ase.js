@@ -257,6 +257,66 @@ router.post('/teamleads', [
         res.status(500).json({ success: false, error: 'Server error' });
     }
 });
+// Helper: count Mon-Fri working days between two date strings inclusive
+function countWorkingDays(startStr, endStr) {
+    let count = 0;
+    const d = new Date(startStr);
+    const end = new Date(endStr);
+    while (d <= end) {
+        const dow = d.getDay();
+        if (dow !== 0 && dow !== 6)
+            count++;
+        d.setDate(d.getDate() + 1);
+    }
+    return count;
+}
+// GET /api/v1/ase/mtd
+router.get('/mtd', async (req, res) => {
+    try {
+        const { userId } = req.user;
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        const monthStart = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+        const today = now.toISOString().split('T')[0];
+        const lastDay = new Date(year, month + 1, 0);
+        const monthEnd = lastDay.toISOString().split('T')[0];
+        const workingDaysTotal = countWorkingDays(monthStart, monthEnd);
+        const tls = await prisma_1.default.teamLead.findMany({
+            where: { aseId: userId },
+            select: { id: true, allocatedTarget: true },
+        });
+        const tlIds = tls.map((t) => t.id);
+        const totalTarget = tls.reduce((s, t) => s + t.allocatedTarget, 0);
+        const dailyTarget = workingDaysTotal > 0 ? totalTarget / workingDaysTotal : 0;
+        const grouped = await prisma_1.default.activation.groupBy({
+            by: ['date'],
+            where: { teamLeadId: { in: tlIds }, date: { gte: monthStart, lte: today } },
+            _sum: { count: true },
+            orderBy: { date: 'asc' },
+        });
+        const days = [];
+        let cumAct = 0, cumTgt = 0;
+        const cursor = new Date(monthStart);
+        const todayD = new Date(today);
+        while (cursor <= todayD) {
+            const dateStr = cursor.toISOString().split('T')[0];
+            const found = grouped.find((g) => g.date === dateStr);
+            const acts = found?._sum.count ?? 0;
+            const dow = cursor.getDay();
+            const dayTarget = dow !== 0 && dow !== 6 ? Math.round(dailyTarget) : 0;
+            cumAct += acts;
+            cumTgt += dayTarget;
+            days.push({ date: dateStr, activations: acts, target: dayTarget, cumActivations: cumAct, cumTarget: cumTgt });
+            cursor.setDate(cursor.getDate() + 1);
+        }
+        res.json({ success: true, data: days });
+    }
+    catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: 'Server error' });
+    }
+});
 // GET /api/v1/ase/available-teamleads — all TLs not yet taken by another ASE (+ own TLs)
 router.get('/available-teamleads', async (req, res) => {
     try {

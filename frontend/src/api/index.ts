@@ -2,7 +2,7 @@ import api from './client';
 import type {
   TLDashboard, Activation, DSA, Alert,
   ASEDashboard, ZBMDashboard, HSDDashboard, AdminUser,
-  ApiResponse
+  ApiResponse, MTDDay
 } from '../types';
 
 // Auth
@@ -169,6 +169,20 @@ export const aseLinkTeamLead = (teamLeadId: string) =>
 
 export const aseUnlinkTeamLead = (teamLeadId: string) =>
   api.delete<ApiResponse<unknown>>(`/ase/link-teamlead/${teamLeadId}`).then(r => r.data);
+
+// MTD
+export const getHSDMTD = async () => {
+  const res = await api.get<ApiResponse<MTDDay[]>>('/hsd/mtd');
+  return res.data;
+};
+export const getZBMMTD = async () => {
+  const res = await api.get<ApiResponse<MTDDay[]>>('/zbm/mtd');
+  return res.data;
+};
+export const getASEMTD = async () => {
+  const res = await api.get<ApiResponse<MTDDay[]>>('/ase/mtd');
+  return res.data;
+};
 
 // ── TL: registered numbers ───────────────────────────────────────────────────
 export const tlLogRegisteredNumbers = (dsaId: string, numbers: string[]) =>

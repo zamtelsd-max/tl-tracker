@@ -159,6 +159,14 @@ export interface AdminUser {
   createdAt: string;
 }
 
+export interface MTDDay {
+  date: string;
+  activations: number;
+  target: number;
+  cumActivations: number;
+  cumTarget: number;
+}
+
 export type ApiResponse<T> = {
   success: true;
   data: T;
