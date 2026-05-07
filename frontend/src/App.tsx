@@ -7,6 +7,7 @@ import ASEDashboard from './pages/ASEDashboard';
 import ZBMDashboard from './pages/ZBMDashboard';
 import HSDDashboard from './pages/HSDDashboard';
 import AdminPanel from './pages/AdminPanel';
+import ListerDashboard from './pages/ListerDashboard';
 import LeaderboardPage from './pages/LeaderboardPage';
 import TLLogNumbers from './pages/TLLogNumbers';
 import type { ReactNode } from 'react';
@@ -17,7 +18,7 @@ function ProtectedRoute({ children, allowedRoles }: { children: ReactNode; allow
   if (!allowedRoles.includes(user.role)) {
     // Redirect to appropriate dashboard
     const roleMap: Record<string, string> = {
-      TL: '/tl', ASE: '/ase', ZBM: '/zbm', HSD: '/hsd', ADMIN: '/admin',
+      TL: '/tl', ASE: '/ase', ZBM: '/zbm', HSD: '/hsd', ADMIN: '/admin', LISTER: '/lister',
     };
     return <Navigate to={roleMap[user.role] || '/login'} replace />;
   }
@@ -28,7 +29,7 @@ function RoleRedirect() {
   const { user, isAuthenticated } = useAuthStore();
   if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
   const roleMap: Record<string, string> = {
-    TL: '/tl', ASE: '/ase', ZBM: '/zbm', HSD: '/hsd', ADMIN: '/admin',
+    TL: '/tl', ASE: '/ase', ZBM: '/zbm', HSD: '/hsd', ADMIN: '/admin', LISTER: '/lister',
   };
   return <Navigate to={roleMap[user.role] || '/login'} replace />;
 }
@@ -84,6 +85,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['ADMIN']}>
               <AdminPanel />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/lister"
+          element={
+            <ProtectedRoute allowedRoles={['LISTER', 'ADMIN']}>
+              <ListerDashboard />
             </ProtectedRoute>
           }
         />

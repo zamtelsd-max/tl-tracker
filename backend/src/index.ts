@@ -7,6 +7,7 @@ import { aseRouter } from './routes/ase';
 import { zbmRouter } from './routes/zbm';
 import { hsdRouter } from './routes/hsd';
 import { adminRouter } from './routes/admin';
+import { listerRouter } from './routes/lister';
 import { startAlertCron } from './services/alerts';
 
 dotenv.config();
@@ -35,6 +36,7 @@ app.use('/api/v1/ase', aseRouter);
 app.use('/api/v1/zbm', zbmRouter);
 app.use('/api/v1/hsd', hsdRouter);
 app.use('/api/v1/admin', adminRouter);
+app.use('/api/v1/lister', listerRouter);
 
 // 404 handler
 app.use((_req, res) => {

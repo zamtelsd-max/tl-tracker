@@ -31,6 +31,7 @@ enum Role {
   ASE
   TL
   ADMIN
+  LISTER
 }
 
 model TeamLead {

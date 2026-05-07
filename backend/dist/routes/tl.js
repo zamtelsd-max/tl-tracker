@@ -356,7 +356,7 @@ router.get('/heatmap', async (req, res) => {
 // POST /api/v1/tl/registered-numbers — log registered Zamtel numbers for a DSA
 router.post('/registered-numbers', async (req, res) => {
     try {
-        const tlId = req.user.id;
+        const tlId = req.user.userId;
         const { dsaId, numbers } = req.body;
         if (!dsaId) {
             res.status(400).json({ error: 'dsaId required' });
@@ -408,7 +408,7 @@ router.post('/registered-numbers', async (req, res) => {
 // GET /api/v1/tl/registered-numbers?dsaId=xxx&date=yyyy-mm-dd
 router.get('/registered-numbers', async (req, res) => {
     try {
-        const tlId = req.user.id;
+        const tlId = req.user.userId;
         const { dsaId, date } = req.query;
         const today = new Date().toISOString().slice(0, 10);
         const numbers = await prisma_1.default.registeredNumber.findMany({

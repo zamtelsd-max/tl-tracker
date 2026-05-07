@@ -422,7 +422,7 @@ export { router as tlRouter };
 // POST /api/v1/tl/registered-numbers — log registered Zamtel numbers for a DSA
 router.post('/registered-numbers', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const tlId = req.user!.id;
+    const tlId = req.user!.userId;
     const { dsaId, numbers } = req.body as { dsaId: string; numbers: string[] };
 
     if (!dsaId) { res.status(400).json({ error: 'dsaId required' }); return; }
@@ -475,7 +475,7 @@ router.post('/registered-numbers', async (req: AuthRequest, res: Response): Prom
 // GET /api/v1/tl/registered-numbers?dsaId=xxx&date=yyyy-mm-dd
 router.get('/registered-numbers', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const tlId = req.user!.id;
+    const tlId = req.user!.userId;
     const { dsaId, date } = req.query as { dsaId?: string; date?: string };
     const today = new Date().toISOString().slice(0, 10);
 
