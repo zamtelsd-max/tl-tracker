@@ -23,7 +23,7 @@ interface TLEntry {
   } | null;
 }
 
-const emptyForm = { staffId: '', name: '', pin: '1234', zone: '', region: '', territory: '' };
+const emptyForm = { staffId: '', name: '', pin: '', zone: '', region: '', territory: '', allocatedTarget: '50', active: 'true' };
 
 export default function ListerDashboard() {
   const { token, logout } = useAuthStore();
@@ -57,7 +57,16 @@ export default function ListerDashboard() {
 
   const openEdit = (tl: TLEntry) => {
     setMode('edit'); setEditing(tl); setError('');
-    setForm({ staffId: tl.staffId, name: tl.name, pin: '', zone: tl.zone ?? '', region: tl.region ?? '', territory: tl.territory ?? '' });
+    setForm({
+      staffId:         tl.staffId,
+      name:            tl.name,
+      pin:             '',
+      zone:            tl.zone     ?? '',
+      region:          tl.region   ?? '',
+      territory:       tl.territory ?? '',
+      allocatedTarget: String(tl.asTeamLead?.allocatedTarget ?? 50),
+      active:          String(tl.active),
+    });
   };
 
   const closeModal = () => { setMode(null); setEditing(null); setForm(emptyForm); setError(''); };
@@ -69,7 +78,14 @@ export default function ListerDashboard() {
       if (mode === 'add') {
         await axios.post(`${API}/lister/pool`, form, { headers });
       } else if (mode === 'edit' && editing) {
-        const payload: Record<string, string> = { name: form.name, zone: form.zone, region: form.region, territory: form.territory };
+        const payload: Record<string, unknown> = {
+          name:      form.name,
+          zone:      form.zone,
+          region:    form.region,
+          territory: form.territory,
+          active:    form.active === 'true',
+          allocatedTarget: Number(form.allocatedTarget) || 50,
+        };
         if (form.pin) payload.pin = form.pin;
         await axios.patch(`${API}/lister/pool/${editing.id}`, payload, { headers });
       }
@@ -260,6 +276,30 @@ export default function ListerDashboard() {
                   className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zamtel-green"
                   placeholder="e.g. Kalingalinga" />
               </div>
+
+              {/* Allocated Target + Status — edit only */}
+              {mode === 'edit' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">Allocated Target</label>
+                    <input
+                      type="number" min="0" max="500"
+                      value={form.allocatedTarget}
+                      onChange={e => setForm(p => ({ ...p, allocatedTarget: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zamtel-green"
+                      placeholder="50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">Status</label>
+                    <select value={form.active} onChange={e => setForm(p => ({ ...p, active: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zamtel-green">
+                      <option value="true">Active</option>
+                      <option value="false">Inactive</option>
+                    </select>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="text-xs font-bold text-gray-700 block mb-1">
