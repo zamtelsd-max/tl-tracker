@@ -3,6 +3,7 @@ import prisma from '../lib/prisma';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
 import { calculateKPIs, getCurrentHourSlot, getWorkingHours } from '../services/kpi';
 import ExcelJS from 'exceljs';
+import bcrypt from 'bcryptjs';
 
 const router = Router();
 
@@ -351,3 +352,94 @@ router.get('/mtd', async (_req: AuthRequest, res: Response): Promise<void> => {
 });
 
 export { router as hsdRouter };
+
+// ── PATCH /api/v1/hsd/teamleads/:id — edit any TL (HSD national) ───────────
+router.patch('/teamleads/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const tl = await prisma.teamLead.findUnique({ where: { id }, include: { user: true } });
+    if (!tl) { res.status(404).json({ success: false, error: 'Team lead not found' }); return; }
+
+    const { name, zone, region, territory, allocatedTarget, pin } = req.body as {
+      name?: string; zone?: string; region?: string; territory?: string;
+      allocatedTarget?: number; pin?: string;
+    };
+
+    const userUpdate: Record<string, unknown> = {};
+    if (name !== undefined)      userUpdate.name      = name.trim();
+    if (zone !== undefined)      userUpdate.zone      = zone.trim() || null;
+    if (region !== undefined)    userUpdate.region    = region.trim() || null;
+    if (territory !== undefined) userUpdate.territory = territory.trim() || null;
+    if (pin) {
+      if (!/^\d{4}$/.test(pin)) { res.status(400).json({ success: false, error: 'PIN must be 4 digits' }); return; }
+      userUpdate.pinHash = await bcrypt.hash(pin, 10);
+    }
+    if (Object.keys(userUpdate).length > 0) {
+      await prisma.user.update({ where: { id: tl.userId }, data: userUpdate });
+    }
+
+    const tlUpdate: Record<string, unknown> = {};
+    if (zone !== undefined)            tlUpdate.zone            = zone.trim() || null;
+    if (region !== undefined)          tlUpdate.region          = region.trim() || null;
+    if (allocatedTarget !== undefined) tlUpdate.allocatedTarget = Number(allocatedTarget);
+    if (Object.keys(tlUpdate).length > 0) {
+      await prisma.teamLead.update({ where: { id }, data: tlUpdate });
+    }
+
+    res.json({ success: true, data: { id, name: name ?? tl.user.name } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
+// ── DELETE /api/v1/hsd/teamleads/:id — unlink TL from ASE (HSD) ─────────────
+router.delete('/teamleads/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const tl = await prisma.teamLead.findUnique({ where: { id } });
+    if (!tl) { res.status(404).json({ success: false, error: 'Team lead not found' }); return; }
+    await prisma.teamLead.update({ where: { id }, data: { aseId: null } });
+    res.json({ success: true, data: { message: 'Team lead unlinked' } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
+// ── GET /api/v1/hsd/teamleads/:id/performance ───────────────────────────────
+router.get('/teamleads/:id/performance', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const tl = await prisma.teamLead.findUnique({ where: { id } });
+    if (!tl) { res.status(404).json({ success: false, error: 'Team lead not found' }); return; }
+
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const yd = new Date(today); yd.setDate(yd.getDate() - 1);
+    const ydStr = yd.toISOString().split('T')[0];
+    const w7 = new Date(today); w7.setDate(w7.getDate() - 6);
+    const w7Str = w7.toISOString().split('T')[0];
+    const mtdStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+
+    const [yesterday, weekly, monthly, todayActs] = await Promise.all([
+      prisma.activation.aggregate({ where: { teamLeadId: id, date: ydStr },  _sum: { count: true } }),
+      prisma.activation.aggregate({ where: { teamLeadId: id, date: { gte: w7Str,  lte: todayStr } }, _sum: { count: true } }),
+      prisma.activation.aggregate({ where: { teamLeadId: id, date: { gte: mtdStr, lte: todayStr } }, _sum: { count: true } }),
+      prisma.activation.aggregate({ where: { teamLeadId: id, date: todayStr }, _sum: { count: true } }),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        today:     todayActs._sum.count ?? 0,
+        yesterday: yesterday._sum.count ?? 0,
+        weekly:    weekly._sum.count    ?? 0,
+        monthly:   monthly._sum.count   ?? 0,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});

@@ -192,3 +192,33 @@ export const tlGetRegisteredNumbers = (dsaId?: string, date?: string) =>
   api.get<ApiResponse<{ id: string; msisdn: string; date: string; dsa: { name: string; dealerCode: string | null } }[]>>(
     '/tl/registered-numbers', { params: { dsaId, date } }
   ).then(r => r.data.data!);
+
+// ── TL Edit / Delete / Performance ─────────────────────────────────────────
+export type TLPerformance = { today: number; yesterday: number; weekly: number; monthly: number };
+
+export const asePatchTL = (tlId: string, data: { name?: string; zone?: string; region?: string; territory?: string; allocatedTarget?: number; pin?: string }) =>
+  api.patch<ApiResponse<unknown>>(`/ase/teamleads/${tlId}`, data).then(r => r.data);
+
+export const aseDeleteTL = (tlId: string) =>
+  api.delete<ApiResponse<unknown>>(`/ase/teamleads/${tlId}`).then(r => r.data);
+
+export const aseGetTLPerformance = (tlId: string) =>
+  api.get<ApiResponse<TLPerformance>>(`/ase/teamleads/${tlId}/performance`).then(r => r.data.data!);
+
+export const zbmPatchTL = (tlId: string, data: { name?: string; zone?: string; region?: string; territory?: string; allocatedTarget?: number; pin?: string }) =>
+  api.patch<ApiResponse<unknown>>(`/zbm/teamleads/${tlId}`, data).then(r => r.data);
+
+export const zbmDeleteTL = (tlId: string) =>
+  api.delete<ApiResponse<unknown>>(`/zbm/teamleads/${tlId}`).then(r => r.data);
+
+export const zbmGetTLPerformance = (tlId: string) =>
+  api.get<ApiResponse<TLPerformance>>(`/zbm/teamleads/${tlId}/performance`).then(r => r.data.data!);
+
+export const hsdPatchTL = (tlId: string, data: { name?: string; zone?: string; region?: string; territory?: string; allocatedTarget?: number; pin?: string }) =>
+  api.patch<ApiResponse<unknown>>(`/hsd/teamleads/${tlId}`, data).then(r => r.data);
+
+export const hsdDeleteTL = (tlId: string) =>
+  api.delete<ApiResponse<unknown>>(`/hsd/teamleads/${tlId}`).then(r => r.data);
+
+export const hsdGetTLPerformance = (tlId: string) =>
+  api.get<ApiResponse<TLPerformance>>(`/hsd/teamleads/${tlId}/performance`).then(r => r.data.data!);

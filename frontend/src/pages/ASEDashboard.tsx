@@ -1,11 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, TrendingUp, AlertTriangle, Activity, UserPlus, X, Trophy, Search, CheckCircle2, Link } from 'lucide-react';
+import { Users, TrendingUp, AlertTriangle, Activity, UserPlus, X, Trophy, Search, CheckCircle2, Link, Pencil, Trash2, ChevronDown, ChevronUp, BarChart2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
 import MTDReport from '../components/MTDReport';
-import { getASEDashboard, getASEAlerts, aseAddTeamLead, aseGetAvailableTLs, aseLinkTeamLead, getASEMTD } from '../api';
+import { getASEDashboard, getASEAlerts, aseAddTeamLead, aseGetAvailableTLs, aseLinkTeamLead, getASEMTD,
+         asePatchTL, aseDeleteTL, aseGetTLPerformance, type TLPerformance } from '../api';
 import type { TLSummary } from '../types';
 
 function StatusBadge({ status }: { status: TLSummary['status'] }) {
@@ -225,6 +226,142 @@ function AddTLModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+const ZONES_LIST = ['Lusaka North','Lusaka-South','Copperbelt','Central','Eastern','Northern','Luapula','Muchinga','North-Western','Southern','Western'];
+
+// ── Edit TL Modal ─────────────────────────────────────────────────────────────
+function EditTLModal({ tl, onClose, onSave }: {
+  tl: { id: string; name: string; zone?: string; region?: string; territory?: string; target?: number };
+  onClose: () => void;
+  onSave: (data: { name: string; zone: string; region: string; territory: string; allocatedTarget: number; pin?: string }) => Promise<void>;
+}) {
+  const [name, setName]           = useState(tl.name);
+  const [zone, setZone]           = useState(tl.zone ?? '');
+  const [region, setRegion]       = useState(tl.region ?? '');
+  const [territory, setTerritory] = useState(tl.territory ?? '');
+  const [target, setTarget]       = useState(String(tl.target ?? 50));
+  const [pin, setPin]             = useState('');
+  const [saving, setSaving]       = useState(false);
+  const [err, setErr]             = useState('');
+
+  const handleSubmit = async () => {
+    if (!name.trim()) { setErr('Name is required'); return; }
+    if (pin && !/^\d{4}$/.test(pin)) { setErr('PIN must be exactly 4 digits'); return; }
+    setSaving(true); setErr('');
+    try {
+      await onSave({ name: name.trim(), zone, region, territory, allocatedTarget: Number(target) || 50, pin: pin || undefined });
+      onClose();
+    } catch (e: any) {
+      setErr(e?.response?.data?.error ?? 'Failed to save');
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b">
+          <h2 className="font-bold text-gray-900 text-base">✏️ Edit Team Lead</h2>
+          <button onClick={onClose} className="text-gray-400 text-2xl leading-none">×</button>
+        </div>
+        <div className="px-6 py-4 space-y-3">
+          {err && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{err}</p>}
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Full Name *</label>
+            <input value={name} onChange={e => setName(e.target.value)} required
+              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00843D]"
+              placeholder="e.g. John Phiri" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Zone</label>
+              <select value={zone} onChange={e => setZone(e.target.value)}
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00843D]">
+                <option value="">— select —</option>
+                {ZONES_LIST.map(z => <option key={z}>{z}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Region</label>
+              <input value={region} onChange={e => setRegion(e.target.value)}
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00843D]"
+                placeholder="e.g. Copperbelt Urban" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Territory</label>
+              <input value={territory} onChange={e => setTerritory(e.target.value)}
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00843D]"
+                placeholder="e.g. Kalingalinga" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Target</label>
+              <input type="number" min="1" max="500" value={target} onChange={e => setTarget(e.target.value)}
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00843D]"
+                placeholder="50" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Reset PIN <span className="text-gray-400">(leave blank to keep)</span></label>
+            <input type="password" value={pin} onChange={e => setPin(e.target.value)} maxLength={4} pattern="\d{4}"
+              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00843D]"
+              placeholder="4-digit PIN" />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button onClick={onClose}
+              className="flex-1 py-3 border border-gray-300 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50">Cancel</button>
+            <button onClick={handleSubmit} disabled={saving}
+              className="flex-1 py-3 bg-[#00843D] text-white rounded-xl text-sm font-bold hover:bg-green-800 disabled:opacity-60">
+              {saving ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── TL Performance Panel ──────────────────────────────────────────────────────
+function TLPerfPanel({ tlId, target }: { tlId: string; target: number }) {
+  const { data: perf, isLoading } = useQuery<TLPerformance>({
+    queryKey: ['ase-tl-perf', tlId],
+    queryFn: () => aseGetTLPerformance(tlId),
+    staleTime: 60000,
+  });
+
+  if (isLoading) return <div className="mt-3 animate-pulse h-10 bg-slate-100 rounded-xl" />;
+  if (!perf) return null;
+
+  const attainPct = Math.min(100, Math.round((perf.monthly / Math.max(target, 1)) * 100));
+
+  return (
+    <div className="mt-3 border-t border-slate-100 pt-3">
+      <div className="grid grid-cols-4 gap-1 text-center">
+        {[
+          { label: 'Today',     value: perf.today,     color: 'text-slate-800' },
+          { label: 'Yesterday', value: perf.yesterday, color: 'text-blue-700' },
+          { label: '7 Days',   value: perf.weekly,    color: 'text-purple-700' },
+          { label: 'MTD',      value: perf.monthly,   color: 'text-[#00843D]' },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="bg-slate-50 rounded-lg py-1.5 px-1">
+            <p className={`text-base font-black ${color}`}>{value}</p>
+            <p className="text-[9px] text-slate-400 leading-tight">{label}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-2">
+        <div className="flex justify-between text-[10px] text-slate-400 mb-0.5">
+          <span>MTD attainment vs target ({target})</span>
+          <span className={attainPct >= 80 ? 'text-green-600 font-bold' : attainPct >= 50 ? 'text-amber-600 font-bold' : 'text-red-500 font-bold'}>{attainPct}%</span>
+        </div>
+        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${attainPct}%`, backgroundColor: attainPct >= 80 ? '#00843D' : attainPct >= 50 ? '#F59E0B' : '#DC2626' }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Spinner() {
   return (
     <div className="flex items-center justify-center h-32">
@@ -235,9 +372,12 @@ function Spinner() {
 
 export default function ASEDashboard() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<'dashboard' | 'mtd' | 'leaderboard'>('dashboard');
   const [activeTab, setActiveTab] = useState<'teams' | 'alerts'>('teams');
   const [showAddTL, setShowAddTL] = useState(false);
+  const [editTL, setEditTL]       = useState<TLSummary | null>(null);
+  const [expandedPerf, setExpandedPerf] = useState<Set<string>>(new Set());
 
   const { data, isLoading } = useQuery({
     queryKey: ['ase-dashboard'],
@@ -268,6 +408,27 @@ export default function ASEDashboard() {
     refetchInterval: 300000,
   });
 
+  const editMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof asePatchTL>[1] }) => asePatchTL(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ase-dashboard'] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => aseDeleteTL(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ase-dashboard'] }),
+  });
+
+  const togglePerf = (id: string) => setExpandedPerf(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  const handleDelete = (tl: TLSummary) => {
+    if (!confirm(`Remove "${tl.name}" from your team?\n\nAll history is preserved. They will be placed back in the pool.`)) return;
+    deleteMutation.mutate(tl.id);
+  };
+
   if (isLoading) {
     return (
       <Layout title="ASE Dashboard">
@@ -293,7 +454,14 @@ export default function ASEDashboard() {
 
   return (
     <Layout title="ASE Dashboard">
-      {showAddTL && <AddTLModal onClose={() => setShowAddTL(false)} />}
+      {showAddTL && <AddTLModal onClose={() => { setShowAddTL(false); queryClient.invalidateQueries({ queryKey: ['ase-dashboard'] }); }} />}
+      {editTL && (
+        <EditTLModal
+          tl={{ id: editTL.id, name: editTL.name, zone: editTL.zone, region: editTL.region, target: editTL.target }}
+          onClose={() => setEditTL(null)}
+          onSave={async (data) => { await editMutation.mutateAsync({ id: editTL.id, data }); setEditTL(null); }}
+        />
+      )}
 
       {/* Tab bar */}
       <div className="flex gap-2 px-4 pt-3 pb-1">
@@ -352,11 +520,21 @@ export default function ASEDashboard() {
               {teamLeads.map((tl) => (
                 <div key={tl.id} className="bg-white rounded-xl shadow-sm p-4">
                   <div className="flex items-start justify-between mb-2">
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="font-bold text-slate-800 text-sm">{tl.name}</p>
                       <p className="text-xs text-slate-500">{tl.zone} · {tl.region}</p>
                     </div>
-                    <StatusBadge status={tl.status} />
+                    <div className="flex items-center gap-1 ml-2 shrink-0">
+                      <StatusBadge status={tl.status} />
+                      <button onClick={() => setEditTL(tl)} title="Edit"
+                        className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 transition-colors">
+                        <Pencil size={13} />
+                      </button>
+                      <button onClick={() => handleDelete(tl)} title="Remove from team"
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 transition-colors">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div>
@@ -377,9 +555,15 @@ export default function ASEDashboard() {
                       style={{ width: `${Math.min(100, tl.attainment)}%`, backgroundColor: tl.status === 'on-track' ? '#00843D' : tl.status === 'at-risk' ? '#F59E0B' : '#DC2626' }} />
                   </div>
                   <div className="flex justify-between mt-1">
-                    <span className="text-xs text-slate-400">{tl.dsaCount} DSAs</span>
-                    <span className="text-xs text-slate-400">Target: {tl.target}</span>
+                    <span className="text-xs text-slate-400">{tl.dsaCount} DSAs · Target: {tl.target}</span>
+                    <button onClick={() => togglePerf(tl.id)}
+                      className="flex items-center gap-1 text-xs text-slate-400 hover:text-[#00843D] transition-colors">
+                      <BarChart2 size={11} />
+                      {expandedPerf.has(tl.id) ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                      Performance
+                    </button>
                   </div>
+                  {expandedPerf.has(tl.id) && <TLPerfPanel tlId={tl.id} target={tl.target} />}
                 </div>
               ))}
 
