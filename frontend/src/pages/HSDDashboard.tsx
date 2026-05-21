@@ -11,7 +11,7 @@ import { Globe, Trophy, TrendingDown, Target, AlertTriangle, ChevronDown, Chevro
 const ZONE_COLORS = ['#00843D', '#E4007C', '#F59E0B', '#3B82F6', '#8B5CF6', '#EF4444'];
 
 function EscalationTab() {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<string[]>([]);
   const { data, isLoading } = useQuery({
     queryKey: ['hsd-escalation'],
     queryFn: getHSDEscalationSummary,
@@ -19,11 +19,9 @@ function EscalationTab() {
   });
 
   const toggle = (zone: string) => {
-    setExpanded(prev => {
-      const next = new Set(prev);
-      next.has(zone) ? next.delete(zone) : next.add(zone);
-      return next;
-    });
+    setExpanded(prev =>
+      prev.includes(zone) ? prev.filter(z => z !== zone) : [...prev, zone]
+    );
   };
 
   if (isLoading) {
@@ -69,7 +67,7 @@ function EscalationTab() {
 
       {/* Per-zone breakdown */}
       {zones.map((z) => {
-        const isOpen = expanded.has(z.zone);
+        const isOpen = expanded.includes(z.zone);
         const severity = z.failingTLs > 20 ? 'bg-red-50 border-red-200' : z.failingTLs > 5 ? 'bg-orange-50 border-orange-200' : 'bg-yellow-50 border-yellow-200';
         const badge = z.failingTLs > 20 ? 'bg-red-100 text-red-700' : z.failingTLs > 5 ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700';
 
