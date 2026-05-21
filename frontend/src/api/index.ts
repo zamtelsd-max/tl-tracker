@@ -222,3 +222,15 @@ export const hsdDeleteTL = (tlId: string) =>
 
 export const hsdGetTLPerformance = (tlId: string) =>
   api.get<ApiResponse<TLPerformance>>(`/hsd/teamleads/${tlId}/performance`).then(r => r.data.data!);
+
+export const getHSDEscalationSummary = () =>
+  api.get<ApiResponse<{ summary: EscalationZone[]; generatedAt: string }>>('/hsd/escalation-summary').then(r => r.data);
+
+export type EscalationZone = {
+  zone: string;
+  failingTLs: number;
+  zeroTLs: number;
+  failingASECount: number;
+  ases: { name: string; staffId: string; attain: number; tlCount: number; failingTlCount: number }[];
+  tls: { tlName: string; tlStaffId: string; mtd: number; target: number; attain: number; noYday: boolean; aseName: string; aseStaffId: string }[];
+};

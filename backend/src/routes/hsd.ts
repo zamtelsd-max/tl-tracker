@@ -351,6 +351,101 @@ router.get('/mtd', async (_req: AuthRequest, res: Response): Promise<void> => {
   }
 });
 
+// ── GET /api/v1/hsd/escalation-summary ─────────────────────────────────────
+// Returns per-zone summary of non-compliant ASEs and TLs for the current MTD
+router.get('/escalation-summary', async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const today = now.toISOString().split('T')[0];
+
+    // Get all TLs with their ASE info and MTD activations
+    const teamLeads = await prisma.teamLead.findMany({
+      include: {
+        user: true,
+        ase: true,
+      },
+    });
+
+    const tlIds = teamLeads.map((tl) => tl.id);
+    const activationRows = await prisma.activation.groupBy({
+      by: ['teamLeadId'],
+      _sum: { count: true },
+      where: { teamLeadId: { in: tlIds }, date: { gte: monthStart, lte: today } },
+    });
+    const actMap = new Map(activationRows.map((r) => [r.teamLeadId, r._sum.count ?? 0]));
+
+    // Yesterday activations
+    const yday = new Date(now);
+    yday.setDate(yday.getDate() - 1);
+    const ydayStr = yday.toISOString().split('T')[0];
+    const ydayRows = await prisma.activation.groupBy({
+      by: ['teamLeadId'],
+      _sum: { count: true },
+      where: { teamLeadId: { in: tlIds }, date: ydayStr },
+    });
+    const ydayMap = new Map(ydayRows.map((r) => [r.teamLeadId, r._sum.count ?? 0]));
+
+    interface TLSummary {
+      tlName: string; tlStaffId: string; mtd: number; target: number;
+      attain: number; noYday: boolean; aseName: string; aseStaffId: string;
+    }
+    interface ZoneSummary {
+      zone: string; failingTLs: number; zeroTLs: number; failingASEs: Set<string>;
+      tls: TLSummary[]; aseSet: Map<string, { name: string; staffId: string; attain: number; tlCount: number; failingTlCount: number }>;
+    }
+
+    const zoneMap = new Map<string, ZoneSummary>();
+
+    for (const tl of teamLeads) {
+      const zone = tl.zone || 'Unknown';
+      const mtd = actMap.get(tl.id) ?? 0;
+      const ydayActs = ydayMap.get(tl.id) ?? 0;
+      const target = tl.allocatedTarget * (now.getDate()); // rough MTD target
+      const attain = target > 0 ? Math.round((mtd / target) * 100) : 0;
+      const failing = attain < 50;
+      const zero = mtd === 0;
+      const noYday = ydayActs === 0;
+
+      if (!zoneMap.has(zone)) {
+        zoneMap.set(zone, { zone, failingTLs: 0, zeroTLs: 0, failingASEs: new Set(), tls: [], aseSet: new Map() });
+      }
+      const zs = zoneMap.get(zone)!;
+      if (failing) zs.failingTLs++;
+      if (zero) zs.zeroTLs++;
+
+      const aseName = tl.ase?.name || 'UNASSIGNED';
+      const aseStaffId = tl.ase?.staffId || 'UNASSIGNED';
+
+      if (failing) zs.failingASEs.add(aseStaffId);
+
+      const existing = zs.aseSet.get(aseStaffId) || { name: aseName, staffId: aseStaffId, attain: 0, tlCount: 0, failingTlCount: 0 };
+      existing.tlCount++;
+      if (failing) existing.failingTlCount++;
+      existing.attain = existing.tlCount > 0 ? Math.round((existing.attain * (existing.tlCount - 1) + attain) / existing.tlCount) : attain;
+      zs.aseSet.set(aseStaffId, existing);
+
+      if (failing) {
+        zs.tls.push({ tlName: tl.user.name, tlStaffId: tl.user.staffId, mtd, target, attain, noYday, aseName, aseStaffId });
+      }
+    }
+
+    const summary = Array.from(zoneMap.values()).map((zs) => ({
+      zone: zs.zone,
+      failingTLs: zs.failingTLs,
+      zeroTLs: zs.zeroTLs,
+      failingASECount: zs.failingASEs.size,
+      ases: Array.from(zs.aseSet.values()).filter((a) => a.failingTlCount > 0).sort((a, b) => a.attain - b.attain),
+      tls: zs.tls.sort((a, b) => a.attain - b.attain).slice(0, 20),
+    })).sort((a, b) => b.failingTLs - a.failingTLs);
+
+    res.json({ success: true, data: { summary, generatedAt: new Date().toISOString() } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
 export { router as hsdRouter };
 
 // ── PATCH /api/v1/hsd/teamleads/:id — edit any TL (HSD national) ───────────
