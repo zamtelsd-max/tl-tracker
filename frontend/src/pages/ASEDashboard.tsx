@@ -377,7 +377,7 @@ export default function ASEDashboard() {
   const [activeTab, setActiveTab] = useState<'teams' | 'alerts'>('teams');
   const [showAddTL, setShowAddTL] = useState(false);
   const [editTL, setEditTL]       = useState<TLSummary | null>(null);
-  const [expandedPerf, setExpandedPerf] = useState<Set<string>>(new Set());
+  const [expandedPerf, setExpandedPerf] = useState<string[]>([]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['ase-dashboard'],
@@ -418,11 +418,9 @@ export default function ASEDashboard() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ase-dashboard'] }),
   });
 
-  const togglePerf = (id: string) => setExpandedPerf(prev => {
-    const next = new Set(prev);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
+  const togglePerf = (id: string) => setExpandedPerf(prev =>
+    prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+  );
 
   const handleDelete = (tl: TLSummary) => {
     if (!confirm(`Remove "${tl.name}" from your team?\n\nAll history is preserved. They will be placed back in the pool.`)) return;
@@ -559,11 +557,11 @@ export default function ASEDashboard() {
                     <button onClick={() => togglePerf(tl.id)}
                       className="flex items-center gap-1 text-xs text-slate-400 hover:text-[#00843D] transition-colors">
                       <BarChart2 size={11} />
-                      {expandedPerf.has(tl.id) ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                      {expandedPerf.includes(tl.id) ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
                       Performance
                     </button>
                   </div>
-                  {expandedPerf.has(tl.id) && <TLPerfPanel tlId={tl.id} target={tl.target} />}
+                  {expandedPerf.includes(tl.id) && <TLPerfPanel tlId={tl.id} target={tl.target} />}
                 </div>
               ))}
 

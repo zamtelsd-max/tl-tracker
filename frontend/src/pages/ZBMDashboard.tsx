@@ -333,7 +333,7 @@ export default function ZBMDashboard() {
   const [showAddASE, setShowAddASE] = useState(false);
   const [tab, setTab] = useState<'dashboard' | 'mtd' | 'leaderboard'>('dashboard');
   const [editTL, setEditTL] = useState<any | null>(null);
-  const [expandedPerf, setExpandedPerf] = useState<Set<string>>(new Set());
+  const [expandedPerf, setExpandedPerf] = useState<string[]>([]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['zbm-dashboard'],
@@ -355,6 +355,19 @@ export default function ZBMDashboard() {
     refetchInterval: 300000,
   });
 
+  // ── All hooks BEFORE any early return ──────────────────────────────
+  const editMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Parameters<typeof zbmPatchTL>[1] }) => zbmPatchTL(id, payload),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['zbm-dashboard'] }),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => zbmDeleteTL(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['zbm-dashboard'] }),
+  });
+  const togglePerf = (id: string) => setExpandedPerf(prev =>
+    prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+  );
+
   if (isLoading) {
     return (
       <Layout title="ZBM Dashboard">
@@ -366,20 +379,6 @@ export default function ZBMDashboard() {
   }
 
   const { summary, teamLeads = [], heatmap = [] } = data || {};
-
-  const editMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Parameters<typeof zbmPatchTL>[1] }) => zbmPatchTL(id, payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['zbm-dashboard'] }),
-  });
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => zbmDeleteTL(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['zbm-dashboard'] }),
-  });
-  const togglePerf = (id: string) => setExpandedPerf(prev => {
-    const next = new Set(prev);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
   const handleDeleteTL = (tl: any) => {
     if (!confirm(`Unlink "${tl.name}" from their ASE?\n\nHistory preserved. TL goes back to pool.`)) return;
     deleteMutation.mutate(tl.id);
@@ -586,11 +585,11 @@ export default function ZBMDashboard() {
                   <button onClick={() => togglePerf(tl.id)}
                     className="flex items-center gap-1 text-xs text-slate-400 hover:text-[#00843D] transition-colors">
                     <BarChart2 size={11} />
-                    {expandedPerf.has(tl.id) ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                    {expandedPerf.includes(tl.id) ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
                     Performance
                   </button>
                 </div>
-                {expandedPerf.has(tl.id) && <ZBMTLPerfPanel tlId={tl.id} target={tl.target} />}
+                {expandedPerf.includes(tl.id) && <ZBMTLPerfPanel tlId={tl.id} target={tl.target} />}
               </div>
             ))}
           </div>
