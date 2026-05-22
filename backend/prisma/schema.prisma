@@ -48,6 +48,7 @@ model TeamLead {
   dsas        DSA[]
   activations Activation[]
   registeredNumbers RegisteredNumber[]
+  grossAdds   GrossAdd[]
   alerts      Alert[]
 }
 
@@ -64,6 +65,7 @@ model DSA {
 
   activations Activation[]
   registeredNumbers RegisteredNumber[]
+  grossAdds   GrossAdd[]
 
   @@unique([teamLeadId, name])
 }
@@ -123,4 +125,25 @@ model RegisteredNumber {
   msisdn     String
   date       String
   createdAt  DateTime @default(now())
+}
+
+model GrossAdd {
+  id              String   @id @default(cuid())
+  teamLeadId      String
+  teamLead        TeamLead @relation(fields: [teamLeadId], references: [id])
+  dsaId           String
+  dsa             DSA      @relation(fields: [dsaId], references: [id])
+  msisdn          String
+  amountRecharged Float?
+  walletActivated Boolean  @default(false)
+  firstDeposit    Float?
+  hourSlot        String
+  date            String
+  latitude        Float?
+  longitude       Float?
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  @@index([teamLeadId, date])
+  @@index([dsaId, date])
 }

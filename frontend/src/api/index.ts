@@ -222,3 +222,55 @@ export const hsdDeleteTL = (tlId: string) =>
 
 export const hsdGetTLPerformance = (tlId: string) =>
   api.get<ApiResponse<TLPerformance>>(`/hsd/teamleads/${tlId}/performance`).then(r => r.data.data!);
+
+// ── Gross Adds ──────────────────────────────────────────────────────────────
+export interface GrossAdd {
+  id: string;
+  dsaId: string;
+  teamLeadId: string;
+  msisdn: string;
+  amountRecharged: number | null;
+  walletActivated: boolean;
+  firstDeposit: number | null;
+  hourSlot: string;
+  date: string;
+  latitude: number | null;
+  longitude: number | null;
+  notes: string | null;
+  createdAt: string;
+  dsa?: { name: string; dealerCode: string | null };
+}
+
+export const logGrossAdd = async (data: {
+  dsaId: string;
+  msisdn: string;
+  amountRecharged?: number;
+  walletActivated?: boolean;
+  firstDeposit?: number;
+  latitude?: number;
+  longitude?: number;
+  notes?: string;
+  hourSlot?: string;
+  date?: string;
+}) => {
+  const res = await api.post<ApiResponse<GrossAdd>>('/tl/gross-adds', data);
+  return res.data;
+};
+
+export const getGrossAdds = async (dsaId?: string, date?: string) => {
+  const res = await api.get<ApiResponse<GrossAdd[]>>('/tl/gross-adds', { params: { dsaId, date } });
+  return res.data;
+};
+
+export const getDSAGrossAdds = async (dsaId: string, date?: string) => {
+  const res = await api.get<ApiResponse<{
+    dsa: { id: string; name: string; dealerCode: string | null };
+    date: string;
+    totalAdds: number;
+    totalRecharged: number;
+    walletActivations: number;
+    totalFirstDeposit: number;
+    adds: GrossAdd[];
+  }>>(`/tl/dsa/${dsaId}/gross-adds`, { params: { date } });
+  return res.data;
+};

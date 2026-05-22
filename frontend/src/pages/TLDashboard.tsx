@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, AlertTriangle, TrendingUp, Clock, Users, UserPlus, X, Phone } from 'lucide-react';
+import { AlertTriangle, TrendingUp, Clock, Users, UserPlus, X, Phone, PlusCircle } from 'lucide-react';
 import Layout from '../components/Layout';
 import ProgressRing from '../components/ProgressRing';
 import { getTLDashboard, addDSA } from '../api';
@@ -366,18 +366,11 @@ export default function TLDashboard() {
           ) : (
             <div className="flex flex-col gap-2 items-end">
               <button
-                onClick={() => navigate('/tl/log')}
+                onClick={() => navigate('/tl/gross-add')}
                 className="bg-[#00843D] hover:bg-[#006B31] active:bg-[#005528] text-white font-bold rounded-full px-6 py-4 shadow-2xl flex items-center gap-2 transition-all duration-150 active:scale-95"
               >
-                <Plus size={20} />
-                LOG ACTIVATION
-              </button>
-              <button
-                onClick={() => navigate('/tl/log-numbers')}
-                className="bg-[#E4007C] hover:bg-[#b8005f] active:bg-[#8c0048] text-white font-bold rounded-full px-5 py-3 shadow-xl flex items-center gap-2 transition-all duration-150 active:scale-95 text-sm"
-              >
-                <Phone size={16} />
-                LOG NUMBERS
+                <PlusCircle size={20} />
+                GROSS ADD
               </button>
             </div>
           )}

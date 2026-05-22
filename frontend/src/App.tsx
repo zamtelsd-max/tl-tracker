@@ -3,6 +3,7 @@ import { useAuthStore } from './store/authStore';
 import LoginPage from './pages/LoginPage';
 import TLDashboard from './pages/TLDashboard';
 import TLLogActivation from './pages/TLLogActivation';
+import TLLogGrossAdd from './pages/TLLogGrossAdd';
 import ASEDashboard from './pages/ASEDashboard';
 import ZBMDashboard from './pages/ZBMDashboard';
 import HSDDashboard from './pages/HSDDashboard';
@@ -109,6 +110,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['TL']}>
               <TLLogNumbers />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tl/gross-add"
+          element={
+            <ProtectedRoute allowedRoles={['TL']}>
+              <TLLogGrossAdd />
             </ProtectedRoute>
           }
         />

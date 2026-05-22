@@ -493,3 +493,124 @@ router.get('/registered-numbers', async (req: AuthRequest, res: Response): Promi
     res.status(500).json({ error: 'Failed to fetch numbers' });
   }
 });
+
+// ─── Gross Add routes ───────────────────────────────────────────────────────
+
+// POST /api/v1/tl/gross-adds  — log one customer gross add
+router.post('/gross-adds', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { teamLeadId } = req.user!;
+    if (!teamLeadId) { res.status(403).json({ success: false, error: 'Not a team lead' }); return; }
+
+    const {
+      dsaId, msisdn, amountRecharged, walletActivated, firstDeposit,
+      latitude, longitude, notes, hourSlot, date,
+    } = req.body as {
+      dsaId: string; msisdn: string; amountRecharged?: number;
+      walletActivated?: boolean; firstDeposit?: number;
+      latitude?: number; longitude?: number; notes?: string;
+      hourSlot?: string; date?: string;
+    };
+
+    if (!dsaId || !msisdn) { res.status(400).json({ success: false, error: 'dsaId and msisdn required' }); return; }
+
+    const MSISDN_RE = /^(09[0-9]|07[0-9])\d{7}$/;
+    if (!MSISDN_RE.test(msisdn.replace(/\s/g, ''))) {
+      res.status(400).json({ success: false, error: 'Invalid MSISDN — must be 09XXXXXXXX or 07XXXXXXXX (10 digits)' });
+      return;
+    }
+
+    const dsa = await prisma.dSA.findFirst({ where: { id: dsaId, teamLeadId } });
+    if (!dsa) { res.status(404).json({ success: false, error: 'DSA not found' }); return; }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const slot = hourSlot ?? getCurrentHourSlot();
+    const recordDate = date ?? today;
+    const cleanMsisdn = msisdn.replace(/\s/g, '');
+
+    // Create gross add record
+    const grossAdd = await prisma.grossAdd.create({
+      data: {
+        teamLeadId, dsaId,
+        msisdn: cleanMsisdn,
+        amountRecharged: amountRecharged ? Number(amountRecharged) : null,
+        walletActivated: walletActivated ?? false,
+        firstDeposit: (walletActivated && firstDeposit) ? Number(firstDeposit) : null,
+        hourSlot: slot,
+        date: recordDate,
+        latitude: latitude ? Number(latitude) : null,
+        longitude: longitude ? Number(longitude) : null,
+        notes: notes || null,
+      },
+    });
+
+    // Also create an activation record (count=1) so existing KPI/dashboard logic keeps working
+    await prisma.activation.create({
+      data: { teamLeadId, dsaId, count: 1, hourSlot: slot, date: recordDate,
+              latitude: latitude ? Number(latitude) : null, longitude: longitude ? Number(longitude) : null },
+    });
+
+    res.status(201).json({ success: true, data: grossAdd });
+  } catch (err) {
+    console.error('gross-add error:', err);
+    res.status(500).json({ success: false, error: 'Failed to log gross add' });
+  }
+});
+
+// GET /api/v1/tl/gross-adds?dsaId=&date=
+router.get('/gross-adds', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { teamLeadId } = req.user!;
+    if (!teamLeadId) { res.status(403).json({ success: false, error: 'Not a team lead' }); return; }
+
+    const { dsaId, date } = req.query as { dsaId?: string; date?: string };
+    const today = new Date().toISOString().slice(0, 10);
+
+    const adds = await prisma.grossAdd.findMany({
+      where: {
+        teamLeadId,
+        ...(dsaId ? { dsaId } : {}),
+        date: date ?? today,
+      },
+      include: { dsa: { select: { name: true, dealerCode: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({ success: true, data: adds });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
+// GET /api/v1/tl/dsa/:dsaId/gross-adds — DSA profile: today's gross adds summary
+router.get('/dsa/:dsaId/gross-adds', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { teamLeadId } = req.user!;
+    if (!teamLeadId) { res.status(403).json({ success: false, error: 'Not a team lead' }); return; }
+
+    const { dsaId } = req.params;
+    const date = (req.query.date as string) || new Date().toISOString().slice(0, 10);
+
+    const dsa = await prisma.dSA.findFirst({ where: { id: dsaId, teamLeadId }, include: { teamLead: false } });
+    if (!dsa) { res.status(404).json({ success: false, error: 'DSA not found' }); return; }
+
+    const adds = await prisma.grossAdd.findMany({
+      where: { dsaId, teamLeadId, date },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const totalAdds = adds.length;
+    const totalRecharged = adds.reduce((s, a) => s + (a.amountRecharged ?? 0), 0);
+    const walletActivations = adds.filter(a => a.walletActivated).length;
+    const totalFirstDeposit = adds.filter(a => a.walletActivated).reduce((s, a) => s + (a.firstDeposit ?? 0), 0);
+
+    res.json({
+      success: true,
+      data: { dsa, date, totalAdds, totalRecharged, walletActivations, totalFirstDeposit, adds },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
