@@ -381,7 +381,8 @@ export default function ASEDashboard() {
       )}
 
       {/* Tab bar */}
-      <div className="flex gap-2 px-4 pt-3 pb-1">
+      <div className="flex flex-col h-full">
+      <div className="flex gap-2 px-4 pt-3 pb-1 flex-shrink-0">
         {(['dashboard', 'mtd', 'leaderboard'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all ${tab === t ? 'bg-[#00843D] text-white shadow' : 'bg-white text-slate-500 border border-slate-200'}`}>
@@ -392,7 +393,7 @@ export default function ASEDashboard() {
 
       {/* ── Dashboard Tab ────────────────────────────────────── */}
       {tab === 'dashboard' && (
-        <div className="px-4 py-4 space-y-4">
+        <div className="px-4 py-4 space-y-4 overflow-y-auto flex-1">
           {/* Header card with donut + stats */}
           {summary && (
             <div className="bg-gradient-to-br from-[#00843D] to-[#006B31] rounded-2xl p-4 text-white shadow-lg">
@@ -479,7 +480,7 @@ export default function ASEDashboard() {
 
       {/* ── MTD Tab ──────────────────────────────────────────── */}
       {tab === 'mtd' && (
-        <div className="px-4 py-4">
+        <div className="px-4 py-4 overflow-y-auto flex-1">
           {mtdLoading ? <Spinner /> : mtdData?.data ?
             <MTDReport days={mtdData.data} totalTarget={totalTarget} /> :
             <p className="text-center text-slate-500 py-8">No MTD data available</p>}
@@ -488,7 +489,7 @@ export default function ASEDashboard() {
 
       {/* ── Leaderboard Tab ──────────────────────────────────── */}
       {tab === 'leaderboard' && (
-        <div className="px-4 py-4 space-y-2">
+        <div className="px-4 py-4 space-y-2 overflow-y-auto flex-1">
           {leaderboardEntries.map((tl, i) => {
             const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
             return (
@@ -514,6 +515,7 @@ export default function ASEDashboard() {
           {leaderboardEntries.length === 0 && <p className="text-center text-slate-500 py-8">No data available</p>}
         </div>
       )}
+    </div>
     </Layout>
   );
 }

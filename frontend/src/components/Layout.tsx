@@ -36,9 +36,9 @@ export default function Layout({
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col max-w-lg mx-auto">
+    <div className="h-screen bg-slate-100 flex flex-col max-w-lg mx-auto overflow-hidden">
       {/* Header */}
-      <header className="zamtel-gradient text-white shadow-lg">
+      <header className="zamtel-gradient text-white shadow-lg flex-shrink-0">
         <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {showBack ? (
@@ -91,7 +91,7 @@ export default function Layout({
       </header>
 
       {/* Content */}
-      <main className="flex-1 overflow-auto pb-6">{children}</main>
+      <main className="flex-1 overflow-y-auto pb-4">{children}</main>
     </div>
   );
 }

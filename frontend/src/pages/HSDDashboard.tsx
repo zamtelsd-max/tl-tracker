@@ -234,7 +234,8 @@ export default function HSDDashboard() {
       )}
 
       {/* Tab bar */}
-      <div className="flex gap-2 px-4 pt-3 pb-1">
+      <div className="flex flex-col h-full">
+      <div className="flex gap-2 px-4 pt-3 pb-1 flex-shrink-0">
         {(['dashboard', 'mtd', 'leaderboard'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all ${tab === t ? 'bg-[#00843D] text-white shadow' : 'bg-white text-slate-500 border border-slate-200'}`}>
@@ -245,7 +246,7 @@ export default function HSDDashboard() {
 
       {/* ── Dashboard Tab ────────────────────────────────────── */}
       {tab === 'dashboard' && (
-        <div className="px-4 py-4 space-y-4">
+        <div className="px-4 py-4 space-y-4 overflow-y-auto flex-1">
 
           {/* National hero banner */}
           {national && (
@@ -342,7 +343,7 @@ export default function HSDDashboard() {
 
       {/* ── MTD Tab ──────────────────────────────────────────── */}
       {tab === 'mtd' && (
-        <div className="px-4 py-4">
+        <div className="px-4 py-4 overflow-y-auto flex-1">
           {mtdLoading ? <Spinner /> : mtdData?.data ?
             <MTDReport days={mtdData.data} totalTarget={totalTarget} /> :
             <p className="text-center text-slate-500 py-8">No MTD data available</p>}
@@ -351,7 +352,7 @@ export default function HSDDashboard() {
 
       {/* ── Leaderboard Tab ──────────────────────────────────── */}
       {tab === 'leaderboard' && (
-        <div className="px-4 py-4 space-y-2">
+        <div className="px-4 py-4 space-y-2 overflow-y-auto flex-1">
           {leaderboardEntries.length === 0 ? (
             <p className="text-center text-slate-500 py-8">No data available</p>
           ) : (
@@ -387,6 +388,7 @@ export default function HSDDashboard() {
           )}
         </div>
       )}
+    </div>
     </Layout>
   );
 }
