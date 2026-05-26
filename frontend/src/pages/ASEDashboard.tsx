@@ -8,7 +8,8 @@ import { Users, TrendingUp, AlertTriangle, Activity, UserPlus, X, Trophy,
 import Layout from '../components/Layout';
 import MTDReport from '../components/MTDReport';
 import { getASEDashboard, getASEAlerts, aseAddTeamLead, aseGetAvailableTLs, aseLinkTeamLead, getASEMTD,
-         asePatchTL, aseDeleteTL, aseGetTLPerformance, type TLPerformance } from '../api';
+         asePatchTL, aseDeleteTL, aseGetTLPerformance, aseExport, type TLPerformance } from '../api';
+import ExportButton from '../components/ExportButton';
 import type { TLSummary } from '../types';
 
 const ZONES_LIST = ['Lusaka North','Lusaka-South','Copperbelt','Central','Eastern','Northern','Luapula','Muchinga','North-Western','Southern','Western'];
@@ -382,13 +383,16 @@ export default function ASEDashboard() {
 
       {/* Tab bar */}
       <div className="flex flex-col h-full">
-      <div className="flex gap-2 px-4 pt-3 pb-1 flex-shrink-0">
+      <div className="flex items-center gap-2 px-4 pt-3 pb-1 flex-shrink-0">
+        <div className="flex-1 flex gap-2">
         {(['dashboard', 'mtd', 'leaderboard'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all ${tab === t ? 'bg-[#00843D] text-white shadow' : 'bg-white text-slate-500 border border-slate-200'}`}>
             {t === 'dashboard' ? '📊 Today' : t === 'mtd' ? '📅 MTD' : '🏆 Ranks'}
           </button>
         ))}
+        </div>
+        <ExportButton onExport={aseExport} label="Export" />
       </div>
 
       {/* ── Dashboard Tab ────────────────────────────────────── */}

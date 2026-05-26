@@ -614,3 +614,97 @@ router.get('/dsa/:dsaId/gross-adds', async (req: AuthRequest, res: Response): Pr
     res.status(500).json({ success: false, error: 'Server error' });
   }
 });
+
+
+// ── GET /api/v1/tl/export — Excel export for Team Lead ──────────────────────
+import ExcelJS from 'exceljs';
+router.get('/export', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const tlUserId = req.user!.userId;
+    const today = new Date().toISOString().split('T')[0];
+    const mtdStart = today.substring(0, 7) + '-01';
+
+    const tl = await prisma.teamLead.findUnique({
+      where: { userId: tlUserId },
+      include: { user: true, dsas: true },
+    });
+    if (!tl) { res.status(404).json({ success: false, error: 'TL not found' }); return; }
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Zamtel TL Tracker';
+
+    // Sheet 1: DSA Performance (MTD)
+    const sheet1 = workbook.addWorksheet('DSA Performance (MTD)');
+    sheet1.columns = [
+      { header: 'DSA Name', key: 'name', width: 22 },
+      { header: 'Phone', key: 'phone', width: 15 },
+      { header: 'Status', key: 'status', width: 10 },
+      { header: 'MTD Activations', key: 'activations', width: 18 },
+      { header: 'MTD Gross Adds', key: 'grossAdds', width: 18 },
+    ];
+    sheet1.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    sheet1.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF004F9F' } };
+
+    for (const dsa of tl.dsas) {
+      const actsAgg = await prisma.activation.aggregate({
+        where: { dsaId: dsa.id, date: { gte: mtdStart, lte: today } },
+        _sum: { count: true },
+      });
+      const gasCount = await prisma.grossAdd.count({
+        where: { dsaId: dsa.id, date: { gte: mtdStart, lte: today } },
+      });
+      sheet1.addRow({
+        name: dsa.name, phone: dsa.phone || '', status: dsa.status,
+        activations: actsAgg._sum.count || 0, grossAdds: gasCount,
+      });
+    }
+
+    // Sheet 2: Today's Activations
+    const sheet2 = workbook.addWorksheet('Today Activations');
+    sheet2.columns = [
+      { header: 'DSA Name', key: 'dsa', width: 22 },
+      { header: 'Hour Slot', key: 'hourSlot', width: 14 },
+      { header: 'Activations', key: 'acts', width: 14 },
+    ];
+    sheet2.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    sheet2.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF004F9F' } };
+
+    const todayActs = await prisma.activation.findMany({
+      where: { teamLeadId: tl.id, date: today },
+      include: { dsa: { select: { name: true } } },
+      orderBy: { hourSlot: 'asc' },
+    });
+    for (const a of todayActs) {
+      sheet2.addRow({ dsa: a.dsa.name, hourSlot: a.hourSlot, acts: a.count });
+    }
+
+    // Sheet 3: Gross Adds (MTD)
+    const sheet3 = workbook.addWorksheet('Gross Adds (MTD)');
+    sheet3.columns = [
+      { header: 'Date', key: 'date', width: 12 },
+      { header: 'DSA Name', key: 'dsa', width: 22 },
+      { header: 'MSISDN', key: 'msisdn', width: 16 },
+      { header: 'Amount Recharged', key: 'amount', width: 18 },
+      { header: 'Wallet Activated', key: 'wallet', width: 18 },
+    ];
+    sheet3.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    sheet3.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF004F9F' } };
+
+    const gasRows = await prisma.grossAdd.findMany({
+      where: { teamLeadId: tl.id, date: { gte: mtdStart, lte: today } },
+      include: { dsa: { select: { name: true } } },
+      orderBy: [{ date: 'asc' }],
+    });
+    for (const g of gasRows) {
+      sheet3.addRow({ date: g.date, dsa: g.dsa.name, msisdn: g.msisdn, amount: g.amountRecharged || 0, wallet: g.walletActivated ? 'Yes' : 'No' });
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=TL-${tl.user.name.replace(/\s+/g,'-')}-${today}.xlsx`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});

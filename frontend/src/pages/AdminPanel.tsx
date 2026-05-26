@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { UserPlus, Pencil, X, Check } from 'lucide-react';
 import Layout from '../components/Layout';
-import { getAdminUsers, createUser, updateUser, deleteUser } from '../api';
+import { getAdminUsers, createUser, updateUser, deleteUser, adminExport } from '../api';
+import ExportButton from '../components/ExportButton';
 import type { AdminUser } from '../types';
 
 const ROLES = ['HSD', 'ZBM', 'ASE', 'TL', 'ADMIN'];
@@ -102,6 +103,9 @@ export default function AdminPanel() {
 
   return (
     <Layout title="Admin Panel" subtitle="User Management">
+      <div className="px-4 pt-3 flex justify-end">
+        <ExportButton onExport={adminExport} label="Export National Report" />
+      </div>
       <div className="px-4 py-4 space-y-4">
 
         {/* Stats */}

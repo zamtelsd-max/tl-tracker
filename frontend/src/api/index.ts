@@ -274,3 +274,29 @@ export const getDSAGrossAdds = async (dsaId: string, date?: string) => {
   }>>(`/tl/dsa/${dsaId}/gross-adds`, { params: { date } });
   return res.data;
 };
+
+// ── Excel Export helpers ─────────────────────────────────────────────────────
+// Downloads the xlsx directly by opening an authenticated fetch + blob URL.
+export const downloadExport = async (endpoint: string, filename: string): Promise<void> => {
+  const token = localStorage.getItem('tl-tracker-token');
+  const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3002/api/v1').replace(/\/$/, '');
+  const res = await fetch(`${baseUrl}${endpoint}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Export failed');
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};
+
+export const tlExport    = () => downloadExport('/tl/export',      `TL-Report-${new Date().toISOString().split('T')[0]}.xlsx`);
+export const aseExport   = () => downloadExport('/ase/export',     `ASE-Report-${new Date().toISOString().split('T')[0]}.xlsx`);
+export const zbmExport   = () => downloadExport('/zbm/export',     `ZBM-Report-${new Date().toISOString().split('T')[0]}.xlsx`);
+export const hsdExport   = () => downloadExport('/hsd/export',     `HSD-National-${new Date().toISOString().split('T')[0]}.xlsx`);
+export const adminExport = () => downloadExport('/admin/export',   `National-Report-${new Date().toISOString().split('T')[0]}.xlsx`);

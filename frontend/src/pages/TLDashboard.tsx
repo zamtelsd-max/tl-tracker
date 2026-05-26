@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, TrendingUp, Clock, Users, UserPlus, X, Phone, PlusCircle } from 'lucide-react';
 import Layout from '../components/Layout';
 import ProgressRing from '../components/ProgressRing';
-import { getTLDashboard, addDSA } from '../api';
+import { getTLDashboard, addDSA, tlExport } from '../api';
+import ExportButton from '../components/ExportButton';
 import type { DSASummary } from '../types';
 
 function DSACard({ dsa }: { dsa: DSASummary }) {
@@ -184,6 +185,9 @@ export default function TLDashboard() {
       alertCount={alertCount}
     >
       {showAddDSA && <AddDSAModal onClose={() => setShowAddDSA(false)} />}
+      <div className="px-4 pt-3 flex justify-end">
+        <ExportButton onExport={tlExport} label="Export Excel" />
+      </div>
       <div className="px-4 py-4 space-y-4">
 
         {/* ── No DSAs: full-page prompt ─────────────────────────────────── */}

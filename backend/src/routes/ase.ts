@@ -526,3 +526,80 @@ router.get('/teamleads/:id/performance', async (req: AuthRequest, res: Response)
     res.status(500).json({ success: false, error: 'Server error' });
   }
 });
+
+// ── GET /api/v1/ase/export — Excel export for ASE ────────────────────────────
+import ExcelJS from 'exceljs';
+router.get('/export', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    const today = new Date().toISOString().split('T')[0];
+    const mtdStart = today.substring(0, 7) + '-01';
+
+    const aseUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!aseUser) { res.status(404).json({ success: false, error: 'ASE not found' }); return; }
+
+    const teamLeads = await prisma.teamLead.findMany({
+      where: { aseId: userId },
+      include: { user: true, dsas: { where: { status: 'ACTIVE' } } },
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Zamtel TL Tracker';
+    workbook.created = new Date();
+
+    // Sheet 1: TL Performance Summary (MTD)
+    const sheet1 = workbook.addWorksheet('TL Performance (MTD)');
+    sheet1.columns = [
+      { header: 'Team Lead', key: 'name', width: 22 },
+      { header: 'Staff ID', key: 'staffId', width: 12 },
+      { header: 'Zone', key: 'zone', width: 15 },
+      { header: 'Region', key: 'region', width: 15 },
+      { header: 'Active DSAs', key: 'dsas', width: 12 },
+      { header: 'MTD Activations', key: 'activations', width: 18 },
+      { header: 'MTD Target', key: 'target', width: 12 },
+      { header: 'Attainment %', key: 'attainment', width: 14 },
+      { header: 'Today Activations', key: 'today', width: 18 },
+    ];
+    sheet1.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    sheet1.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF00843D' } };
+
+    for (const tl of teamLeads) {
+      const mtdAgg = await prisma.activation.aggregate({ where: { teamLeadId: tl.id, date: { gte: mtdStart, lte: today } }, _sum: { count: true } });
+      const todayAgg = await prisma.activation.aggregate({ where: { teamLeadId: tl.id, date: today }, _sum: { count: true } });
+      const mtd = mtdAgg._sum.count || 0;
+      const todayActs = todayAgg._sum.count || 0;
+      const target = tl.allocatedTarget * new Date().getDate();
+      const attain = target > 0 ? Math.round((mtd / target) * 100) : 0;
+      const row = sheet1.addRow({ name: tl.user.name, staffId: tl.user.staffId, zone: tl.zone || '', region: tl.region || '', dsas: tl.dsas.length, activations: mtd, target, attainment: attain, today: todayActs });
+      if (attain < 50) row.font = { color: { argb: 'FFCC0000' } };
+    }
+
+    // Sheet 2: DSA Detail across all TLs
+    const sheet2 = workbook.addWorksheet('DSA Detail');
+    sheet2.columns = [
+      { header: 'Team Lead', key: 'tl', width: 22 },
+      { header: 'DSA Name', key: 'dsa', width: 22 },
+      { header: 'Phone', key: 'phone', width: 15 },
+      { header: 'Status', key: 'status', width: 10 },
+      { header: 'MTD Activations', key: 'activations', width: 18 },
+    ];
+    sheet2.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    sheet2.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF00843D' } };
+
+    for (const tl of teamLeads) {
+      const allDsas = await prisma.dSA.findMany({ where: { teamLeadId: tl.id }, include: { activations: { where: { date: { gte: mtdStart, lte: today } } } } });
+      for (const dsa of allDsas) {
+        const acts = dsa.activations.reduce((s, a) => s + a.count, 0);
+        sheet2.addRow({ tl: tl.user.name, dsa: dsa.name, phone: dsa.phone || '', status: dsa.status, activations: acts });
+      }
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=ASE-${aseUser.name.replace(/\s+/g,'-')}-${today}.xlsx`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});

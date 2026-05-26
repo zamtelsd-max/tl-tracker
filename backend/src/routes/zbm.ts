@@ -519,3 +519,92 @@ router.get('/teamleads/:id/performance', async (req: AuthRequest, res: Response)
     res.status(500).json({ success: false, error: 'Server error' });
   }
 });
+
+// ── GET /api/v1/zbm/export — Excel export for ZBM ────────────────────────────
+import ExcelJS from 'exceljs';
+router.get('/export', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    const today = new Date().toISOString().split('T')[0];
+    const mtdStart = today.substring(0, 7) + '-01';
+
+    const zbmUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!zbmUser) { res.status(404).json({ success: false, error: 'ZBM not found' }); return; }
+    const zone = zbmUser.zone;
+
+    const teamLeads = await prisma.teamLead.findMany({
+      where: zone ? { zone } : {},
+      include: { user: true, ase: true, dsas: { where: { status: 'ACTIVE' } } },
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Zamtel TL Tracker';
+    workbook.created = new Date();
+
+    // Sheet 1: Zone TL Performance
+    const sheet1 = workbook.addWorksheet('TL Performance');
+    sheet1.columns = [
+      { header: 'Team Lead', key: 'name', width: 22 },
+      { header: 'Staff ID', key: 'staffId', width: 12 },
+      { header: 'Zone', key: 'zone', width: 15 },
+      { header: 'Region', key: 'region', width: 15 },
+      { header: 'ASE', key: 'ase', width: 18 },
+      { header: 'Active DSAs', key: 'dsas', width: 12 },
+      { header: 'Today Activations', key: 'today', width: 18 },
+      { header: 'MTD Activations', key: 'mtd', width: 18 },
+      { header: 'MTD Target', key: 'target', width: 12 },
+      { header: 'Attainment %', key: 'attainment', width: 14 },
+    ];
+    sheet1.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    sheet1.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF003DA5' } };
+
+    for (const tl of teamLeads) {
+      const mtdAgg = await prisma.activation.aggregate({ where: { teamLeadId: tl.id, date: { gte: mtdStart, lte: today } }, _sum: { count: true } });
+      const todayAgg = await prisma.activation.aggregate({ where: { teamLeadId: tl.id, date: today }, _sum: { count: true } });
+      const mtd = mtdAgg._sum.count || 0;
+      const todayActs = todayAgg._sum.count || 0;
+      const target = tl.allocatedTarget * new Date().getDate();
+      const attain = target > 0 ? Math.round((mtd / target) * 100) : 0;
+      const row = sheet1.addRow({ name: tl.user.name, staffId: tl.user.staffId, zone: tl.zone || '', region: tl.region || '', ase: tl.ase?.name || 'UNASSIGNED', dsas: tl.dsas.length, today: todayActs, mtd, target, attainment: attain });
+      if (attain < 50) row.font = { color: { argb: 'FFCC0000' } };
+    }
+
+    // Sheet 2: ASE Summary
+    const sheet2 = workbook.addWorksheet('ASE Summary');
+    sheet2.columns = [
+      { header: 'ASE Name', key: 'name', width: 22 },
+      { header: 'Staff ID', key: 'staffId', width: 12 },
+      { header: 'No. of TLs', key: 'tlCount', width: 12 },
+      { header: 'Total DSAs', key: 'dsaCount', width: 12 },
+      { header: 'MTD Activations', key: 'mtd', width: 18 },
+      { header: 'MTD Target', key: 'target', width: 12 },
+      { header: 'Attainment %', key: 'attainment', width: 14 },
+    ];
+    sheet2.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    sheet2.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF003DA5' } };
+
+    const aseMap = new Map<string, { name: string; staffId: string; tlCount: number; dsaCount: number; mtd: number; target: number }>();
+    for (const tl of teamLeads) {
+      const key = tl.ase?.staffId || 'UNASSIGNED';
+      const existing = aseMap.get(key) || { name: tl.ase?.name || 'UNASSIGNED', staffId: key, tlCount: 0, dsaCount: 0, mtd: 0, target: 0 };
+      const mtdAgg = await prisma.activation.aggregate({ where: { teamLeadId: tl.id, date: { gte: mtdStart, lte: today } }, _sum: { count: true } });
+      existing.tlCount++;
+      existing.dsaCount += tl.dsas.length;
+      existing.mtd += mtdAgg._sum.count || 0;
+      existing.target += tl.allocatedTarget * new Date().getDate();
+      aseMap.set(key, existing);
+    }
+    for (const ase of aseMap.values()) {
+      const attain = ase.target > 0 ? Math.round((ase.mtd / ase.target) * 100) : 0;
+      sheet2.addRow({ name: ase.name, staffId: ase.staffId, tlCount: ase.tlCount, dsaCount: ase.dsaCount, mtd: ase.mtd, target: ase.target, attainment: attain });
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=ZBM-${zone||'All'}-${today}.xlsx`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});

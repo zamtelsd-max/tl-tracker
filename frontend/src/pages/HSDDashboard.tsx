@@ -6,8 +6,9 @@ import Layout from '../components/Layout';
 import MTDReport from '../components/MTDReport';
 import {
   getHSDDashboard, getHSDMTD,
-  hsdPatchTL, hsdDeleteTL, hsdGetTLPerformance, type TLPerformance,
+  hsdPatchTL, hsdDeleteTL, hsdGetTLPerformance, hsdExport, type TLPerformance,
 } from '../api';
+import ExportButton from '../components/ExportButton';
 import { Globe, Trophy, TrendingDown, Target, Edit2, Trash2,
          BarChart2, ChevronUp, ChevronDown, X, AlertTriangle } from 'lucide-react';
 
@@ -235,13 +236,16 @@ export default function HSDDashboard() {
 
       {/* Tab bar */}
       <div className="flex flex-col h-full">
-      <div className="flex gap-2 px-4 pt-3 pb-1 flex-shrink-0">
+      <div className="flex items-center gap-2 px-4 pt-3 pb-1 flex-shrink-0">
+        <div className="flex-1 flex gap-2">
         {(['dashboard', 'mtd', 'leaderboard'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all ${tab === t ? 'bg-[#00843D] text-white shadow' : 'bg-white text-slate-500 border border-slate-200'}`}>
             {t === 'dashboard' ? '📊 Today' : t === 'mtd' ? '📅 MTD' : '🏆 Ranks'}
           </button>
         ))}
+        </div>
+        <ExportButton onExport={hsdExport} label="Export" />
       </div>
 
       {/* ── Dashboard Tab ────────────────────────────────────── */}
@@ -298,10 +302,7 @@ export default function HSDDashboard() {
                 <AlertTriangle size={13} /> {underperformers.length} failing
               </button>
             )}
-            <a href={`${import.meta.env.VITE_API_URL || '/api'}/hsd/export?format=xlsx`}
-              className="flex items-center gap-1 bg-slate-100 text-slate-700 text-xs font-bold py-2.5 px-3 rounded-xl border border-slate-200" download>
-              ↓ Export
-            </a>
+            <ExportButton onExport={hsdExport} label="Export" />
           </div>
 
           {/* Zone ranking cards */}
