@@ -174,4 +174,120 @@ router.delete('/pool/:userId', async (req: AuthRequest, res: Response): Promise<
   }
 });
 
+// ── GET /api/v1/lister/copperbelt-performance — all Copperbelt TLs' performance ──
+router.get('/copperbelt-performance', async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    // Match Copperbelt by zone OR region (region casing is messy: COPPERBELT, COPPERBET, etc.)
+    const tls = await prisma.teamLead.findMany({
+      where: {
+        OR: [
+          { zone:   { contains: 'opperbel', mode: 'insensitive' } },
+          { region: { contains: 'opperbe',  mode: 'insensitive' } },
+        ],
+      },
+      include: { user: { select: { name: true, staffId: true, active: true } }, ase: { select: { name: true } } },
+    });
+
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const yd = new Date(today); yd.setDate(yd.getDate() - 1);
+    const ydStr = yd.toISOString().split('T')[0];
+    const w7 = new Date(today); w7.setDate(w7.getDate() - 6);
+    const w7Str = w7.toISOString().split('T')[0];
+    const mtdStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+
+    const rows = await Promise.all(tls.map(async (tl) => {
+      const [todayA, ydA, weekA, mtdA] = await Promise.all([
+        prisma.activation.aggregate({ where: { teamLeadId: tl.id, date: todayStr }, _sum: { count: true } }),
+        prisma.activation.aggregate({ where: { teamLeadId: tl.id, date: ydStr },    _sum: { count: true } }),
+        prisma.activation.aggregate({ where: { teamLeadId: tl.id, date: { gte: w7Str,  lte: todayStr } }, _sum: { count: true } }),
+        prisma.activation.aggregate({ where: { teamLeadId: tl.id, date: { gte: mtdStr, lte: todayStr } }, _sum: { count: true } }),
+      ]);
+      const monthly = mtdA._sum.count ?? 0;
+      const target  = tl.allocatedTarget || 50;
+      return {
+        id: tl.id, name: tl.user?.name || '—', staffId: tl.user?.staffId || '',
+        zone: tl.zone || '', region: tl.region || '', ase: tl.ase?.name || 'Unassigned',
+        active: tl.user?.active !== false,
+        today: todayA._sum.count ?? 0, yesterday: ydA._sum.count ?? 0,
+        weekly: weekA._sum.count ?? 0, monthly, target,
+        attainment: target > 0 ? Math.min(Math.round(monthly / target * 100), 100) : 0,
+      };
+    }));
+    rows.sort((a, b) => b.monthly - a.monthly);
+
+    const totals = rows.reduce((acc, r) => {
+      acc.today += r.today; acc.yesterday += r.yesterday; acc.weekly += r.weekly;
+      acc.monthly += r.monthly; acc.target += r.target;
+      return acc;
+    }, { today: 0, yesterday: 0, weekly: 0, monthly: 0, target: 0 });
+
+    res.json({
+      success: true,
+      data: {
+        region: 'Copperbelt',
+        tlCount: rows.length,
+        totals: { ...totals, attainment: totals.target > 0 ? Math.min(Math.round(totals.monthly / totals.target * 100), 100) : 0 },
+        teamLeads: rows,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
+// ── GET /api/v1/lister/export — Copperbelt activations Excel export ──────────
+import ExcelJS from 'exceljs';
+router.get('/export', async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const tls = await prisma.teamLead.findMany({
+      where: {
+        OR: [
+          { zone:   { contains: 'opperbel', mode: 'insensitive' } },
+          { region: { contains: 'opperbe',  mode: 'insensitive' } },
+        ],
+      },
+      include: { user: { select: { name: true, staffId: true } }, ase: { select: { name: true } } },
+    });
+    const today = new Date(); const todayStr = today.toISOString().split('T')[0];
+    const mtdStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Zamtel TL Tracker';
+    const sheet = wb.addWorksheet('Copperbelt Activations (MTD)');
+    sheet.columns = [
+      { header: 'Team Lead', key: 'name', width: 24 },
+      { header: 'Staff ID', key: 'staffId', width: 14 },
+      { header: 'Zone', key: 'zone', width: 16 },
+      { header: 'Region', key: 'region', width: 18 },
+      { header: 'ASE', key: 'ase', width: 22 },
+      { header: 'MTD Activations', key: 'monthly', width: 16 },
+      { header: 'Target', key: 'target', width: 10 },
+      { header: 'Attainment %', key: 'attainment', width: 14 },
+    ];
+    sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF004F9F' } };
+
+    for (const tl of tls) {
+      const mtd = await prisma.activation.aggregate({ where: { teamLeadId: tl.id, date: { gte: mtdStr, lte: todayStr } }, _sum: { count: true } });
+      const monthly = mtd._sum.count ?? 0;
+      const target = tl.allocatedTarget || 50;
+      sheet.addRow({
+        name: tl.user?.name || '—', staffId: tl.user?.staffId || '',
+        zone: tl.zone || '', region: tl.region || '', ase: tl.ase?.name || 'Unassigned',
+        monthly, target, attainment: target > 0 ? Math.round(monthly / target * 100) : 0,
+      });
+    }
+
+    const buf = await wb.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="copperbelt-activations-${todayStr}.xlsx"`);
+    res.send(Buffer.from(buf));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Export failed' });
+  }
+});
+
 export { router as listerRouter };

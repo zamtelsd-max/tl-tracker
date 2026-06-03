@@ -300,3 +300,4 @@ export const aseExport   = () => downloadExport('/ase/export',     `ASE-Report-$
 export const zbmExport   = () => downloadExport('/zbm/export',     `ZBM-Report-${new Date().toISOString().split('T')[0]}.xlsx`);
 export const hsdExport   = () => downloadExport('/hsd/export',     `HSD-National-${new Date().toISOString().split('T')[0]}.xlsx`);
 export const adminExport = () => downloadExport('/admin/export',   `National-Report-${new Date().toISOString().split('T')[0]}.xlsx`);
+export const listerExport = () => downloadExport('/lister/export',  `Copperbelt-Activations-${new Date().toISOString().split('T')[0]}.xlsx`);

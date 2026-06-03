@@ -31,6 +31,10 @@ export default function ListerDashboard() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch]   = useState('');
   const [filter, setFilter]   = useState<'all' | 'assigned' | 'unassigned'>('all');
+  const [view, setView]       = useState<'pool' | 'copperbelt'>('pool');
+  const [cbData, setCbData]   = useState<any>(null);
+  const [cbLoading, setCbLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Modal state
   const [mode, setMode] = useState<'add' | 'edit' | null>(null);
@@ -50,6 +54,25 @@ export default function ListerDashboard() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const loadCopperbelt = async () => {
+    setCbLoading(true);
+    try {
+      const r = await axios.get(`${API}/lister/copperbelt-performance`, { headers });
+      setCbData(r.data.data);
+    } catch { /* silent */ }
+    finally { setCbLoading(false); }
+  };
+  useEffect(() => { if (view === 'copperbelt' && !cbData) loadCopperbelt(); }, [view]); // eslint-disable-line
+
+  const downloadActivations = async () => {
+    setExporting(true);
+    try {
+      const { listerExport } = await import('../api');
+      await listerExport();
+    } catch { alert('Export failed'); }
+    finally { setExporting(false); }
+  };
 
   const openAdd = () => {
     setMode('add'); setEditing(null); setForm(emptyForm); setError('');
@@ -131,6 +154,63 @@ export default function ListerDashboard() {
 
       <div className="max-w-3xl mx-auto px-4 py-5 space-y-4">
 
+        {/* View toggle + global download */}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5 flex-1">
+            <button onClick={() => setView('pool')} className={`flex-1 py-2 rounded-xl text-xs font-bold ${view === 'pool' ? 'bg-zamtel-green text-white shadow' : 'bg-white text-gray-500 border border-gray-200'}`}>👥 TL Pool</button>
+            <button onClick={() => setView('copperbelt')} className={`flex-1 py-2 rounded-xl text-xs font-bold ${view === 'copperbelt' ? 'bg-zamtel-green text-white shadow' : 'bg-white text-gray-500 border border-gray-200'}`}>📊 Copperbelt Performance</button>
+          </div>
+          <button onClick={downloadActivations} disabled={exporting} className="flex-shrink-0 bg-blue-600 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap">
+            {exporting ? '…' : '⬇ Activations'}
+          </button>
+        </div>
+
+        {/* ── COPPERBELT PERFORMANCE VIEW ── */}
+        {view === 'copperbelt' && (
+          <div className="space-y-3">
+            {cbLoading ? (
+              <div className="text-center py-12 text-gray-400">Loading Copperbelt performance…</div>
+            ) : !cbData ? (
+              <div className="text-center py-12 text-gray-400">No data.</div>
+            ) : (<>
+              {/* Totals */}
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { l: 'TLs', v: cbData.tlCount, c: 'text-zamtel-green' },
+                  { l: 'Today', v: cbData.totals.today, c: 'text-blue-600' },
+                  { l: 'MTD', v: cbData.totals.monthly, c: 'text-zamtel-pink' },
+                  { l: 'Attain', v: `${cbData.totals.attainment}%`, c: 'text-amber-600' },
+                ].map(c => (
+                  <div key={c.l} className="bg-white rounded-2xl border border-gray-200 p-3 text-center shadow-sm">
+                    <p className={`text-xl font-extrabold ${c.c}`}>{c.v}</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">{c.l}</p>
+                  </div>
+                ))}
+              </div>
+              {/* TL ranking */}
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-gray-100"><p className="text-sm font-bold text-gray-700">Copperbelt TL Ranking ({cbData.teamLeads.length})</p></div>
+                <div className="divide-y divide-gray-50">
+                  {cbData.teamLeads.map((tl: any, i: number) => (
+                    <div key={tl.id} className={`px-4 py-2.5 flex items-center gap-2 ${!tl.active ? 'opacity-50' : ''}`}>
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 ${i===0?'bg-yellow-100 text-yellow-700':i===1?'bg-gray-200 text-gray-600':i===2?'bg-orange-100 text-orange-600':'bg-gray-100 text-gray-500'}`}>{i+1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-800 truncate">{tl.name}</p>
+                        <p className="text-[10px] text-gray-400">{tl.region || tl.zone} · ASE: {tl.ase} · Tgt {tl.target}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-sm font-black text-gray-800">{tl.monthly}<span className="text-[10px] text-gray-400 font-normal"> MTD</span></p>
+                        <p className={`text-[10px] font-bold ${tl.attainment >= 70 ? 'text-green-600' : tl.attainment >= 40 ? 'text-amber-500' : 'text-red-500'}`}>{tl.attainment}% · today {tl.today}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>)}
+          </div>
+        )}
+
+        {view === 'pool' && (<>
         {/* Summary cards */}
         <div className="grid grid-cols-3 gap-3">
           {[
@@ -224,6 +304,7 @@ export default function ListerDashboard() {
             </div>
           </div>
         )}
+        </>)}
       </div>
 
       {/* Add / Edit Modal */}
