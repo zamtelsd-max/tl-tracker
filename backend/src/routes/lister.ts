@@ -251,38 +251,77 @@ router.get('/export', async (_req: AuthRequest, res: Response): Promise<void> =>
       include: { user: { select: { name: true, staffId: true } }, ase: { select: { name: true } } },
     });
     const today = new Date(); const todayStr = today.toISOString().split('T')[0];
+    const yd = new Date(today); yd.setDate(yd.getDate() - 1); const ydStr = yd.toISOString().split('T')[0];
+    const w7 = new Date(today); w7.setDate(w7.getDate() - 6); const w7Str = w7.toISOString().split('T')[0];
     const mtdStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
 
+    const ZAMTEL_GREEN = 'FF00843D';
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Zamtel TL Tracker';
-    const sheet = wb.addWorksheet('Copperbelt Activations (MTD)');
+    const sheet = wb.addWorksheet('Copperbelt TL Performance', { properties: { tabColor: { argb: ZAMTEL_GREEN } } });
     sheet.columns = [
+      { header: 'Rank', key: 'rank', width: 6 },
       { header: 'Team Lead', key: 'name', width: 24 },
       { header: 'Staff ID', key: 'staffId', width: 14 },
       { header: 'Zone', key: 'zone', width: 16 },
       { header: 'Region', key: 'region', width: 18 },
       { header: 'ASE', key: 'ase', width: 22 },
+      { header: 'Today', key: 'today', width: 10 },
+      { header: 'Yesterday', key: 'yesterday', width: 11 },
+      { header: 'Last 7 Days', key: 'weekly', width: 12 },
       { header: 'MTD Activations', key: 'monthly', width: 16 },
       { header: 'Target', key: 'target', width: 10 },
       { header: 'Attainment %', key: 'attainment', width: 14 },
+      { header: 'Status', key: 'status', width: 12 },
     ];
     sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF004F9F' } };
+    sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ZAMTEL_GREEN } };
+    sheet.getRow(1).height = 22;
+    sheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
 
+    const computed: any[] = [];
     for (const tl of tls) {
-      const mtd = await prisma.activation.aggregate({ where: { teamLeadId: tl.id, date: { gte: mtdStr, lte: todayStr } }, _sum: { count: true } });
-      const monthly = mtd._sum.count ?? 0;
+      const [todayA, ydA, weekA, mtdA] = await Promise.all([
+        prisma.activation.aggregate({ where: { teamLeadId: tl.id, date: todayStr }, _sum: { count: true } }),
+        prisma.activation.aggregate({ where: { teamLeadId: tl.id, date: ydStr }, _sum: { count: true } }),
+        prisma.activation.aggregate({ where: { teamLeadId: tl.id, date: { gte: w7Str, lte: todayStr } }, _sum: { count: true } }),
+        prisma.activation.aggregate({ where: { teamLeadId: tl.id, date: { gte: mtdStr, lte: todayStr } }, _sum: { count: true } }),
+      ]);
+      const monthly = mtdA._sum.count ?? 0;
       const target = tl.allocatedTarget || 50;
-      sheet.addRow({
+      const attainment = target > 0 ? Math.round(monthly / target * 100) : 0;
+      computed.push({
         name: tl.user?.name || '—', staffId: tl.user?.staffId || '',
         zone: tl.zone || '', region: tl.region || '', ase: tl.ase?.name || 'Unassigned',
-        monthly, target, attainment: target > 0 ? Math.round(monthly / target * 100) : 0,
+        today: todayA._sum.count ?? 0, yesterday: ydA._sum.count ?? 0, weekly: weekA._sum.count ?? 0,
+        monthly, target, attainment,
+        status: attainment >= 70 ? 'On Track' : attainment >= 40 ? 'Behind' : 'Critical',
       });
     }
+    computed.sort((a, b) => b.monthly - a.monthly);
+    computed.forEach((row, i) => {
+      const r = sheet.addRow({ rank: i + 1, ...row });
+      if (i % 2 === 0) r.eachCell((c: any) => c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F4EC' } });
+      const attCell = r.getCell('attainment');
+      attCell.font = { bold: true, color: { argb: row.attainment >= 70 ? 'FF00843D' : row.attainment >= 40 ? 'FFB45309' : 'FFB91C1C' } };
+      attCell.alignment = { horizontal: 'center' };
+    });
+    // Totals row
+    const tot = sheet.addRow({
+      name: 'TOTAL', ase: `${computed.length} TLs`,
+      today: computed.reduce((s, r) => s + r.today, 0),
+      yesterday: computed.reduce((s, r) => s + r.yesterday, 0),
+      weekly: computed.reduce((s, r) => s + r.weekly, 0),
+      monthly: computed.reduce((s, r) => s + r.monthly, 0),
+      target: computed.reduce((s, r) => s + r.target, 0),
+    });
+    tot.font = { bold: true };
+    tot.eachCell((c: any) => c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCDE9D6' } });
 
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="copperbelt-activations-${todayStr}.xlsx"`);
+    res.setHeader('Content-Disposition', `attachment; filename="copperbelt-tl-performance-${todayStr}.xlsx"`);
     res.send(Buffer.from(buf));
   } catch (err) {
     console.error(err);

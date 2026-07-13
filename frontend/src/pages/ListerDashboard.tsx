@@ -161,7 +161,7 @@ export default function ListerDashboard() {
             <button onClick={() => setView('copperbelt')} className={`flex-1 py-2 rounded-xl text-xs font-bold ${view === 'copperbelt' ? 'bg-zamtel-green text-white shadow' : 'bg-white text-gray-500 border border-gray-200'}`}>📊 Copperbelt Performance</button>
           </div>
           <button onClick={downloadActivations} disabled={exporting} className="flex-shrink-0 bg-blue-600 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap">
-            {exporting ? '…' : '⬇ Activations'}
+            {exporting ? '…' : '⬇ Performance'}
           </button>
         </div>
 
