@@ -34,6 +34,19 @@ enum Role {
   LISTER
 }
 
+model LoginLog {
+  id       String   @id @default(cuid())
+  userId   String
+  userName String
+  role     String
+  zone     String?
+  loggedAt DateTime @default(now())
+
+  @@index([role])
+  @@index([loggedAt])
+  @@map("login_logs")
+}
+
 model TeamLead {
   id              String   @id @default(cuid())
   userId          String   @unique

@@ -9,6 +9,7 @@ import {
   hsdPatchTL, hsdDeleteTL, hsdGetTLPerformance, hsdExport, type TLPerformance,
 } from '../api';
 import ExportButton from '../components/ExportButton';
+import LoginActivityTL from '../components/LoginActivityTL';
 import { Globe, Trophy, TrendingDown, Target, Edit2, Trash2,
          BarChart2, ChevronUp, ChevronDown, X, AlertTriangle } from 'lucide-react';
 
@@ -188,7 +189,7 @@ function ZoneCard({ zone, rank, color, data, onEdit, onDelete, expandedPerf, onT
 export default function HSDDashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<'dashboard' | 'mtd' | 'leaderboard'>('dashboard');
+  const [tab, setTab] = useState<'dashboard' | 'mtd' | 'leaderboard' | 'logins'>('dashboard');
   const [editTL, setEditTL] = useState<{ id: string; name: string; zone?: string } | null>(null);
   const [expandedPerf, setExpandedPerf] = useState<string[]>([]);
 
@@ -238,10 +239,10 @@ export default function HSDDashboard() {
       <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 pt-3 pb-1 flex-shrink-0">
         <div className="flex-1 flex gap-2">
-        {(['dashboard', 'mtd', 'leaderboard'] as const).map(t => (
+        {(['dashboard', 'mtd', 'leaderboard', 'logins'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all ${tab === t ? 'bg-[#00843D] text-white shadow' : 'bg-white text-slate-500 border border-slate-200'}`}>
-            {t === 'dashboard' ? '📊 Today' : t === 'mtd' ? '📅 MTD' : '🏆 Ranks'}
+            {t === 'dashboard' ? '📊 Today' : t === 'mtd' ? '📅 MTD' : t === 'leaderboard' ? '🏆 Ranks' : '🔐 Logins'}
           </button>
         ))}
         </div>
@@ -389,6 +390,8 @@ export default function HSDDashboard() {
           )}
         </div>
       )}
+
+      {tab === 'logins' && <LoginActivityTL />}
     </div>
     </Layout>
   );

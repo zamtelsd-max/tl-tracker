@@ -299,5 +299,10 @@ export const tlExport    = () => downloadExport('/tl/export',      `TL-Report-${
 export const aseExport   = () => downloadExport('/ase/export',     `ASE-Report-${new Date().toISOString().split('T')[0]}.xlsx`);
 export const zbmExport   = () => downloadExport('/zbm/export',     `ZBM-Report-${new Date().toISOString().split('T')[0]}.xlsx`);
 export const hsdExport   = () => downloadExport('/hsd/export',     `HSD-National-${new Date().toISOString().split('T')[0]}.xlsx`);
+
+export const getLoginReport = (role = 'ZBM') =>
+  api.get<ApiResponse<any>>(`/hsd/login-report?role=${role}`).then(r => r.data.data);
+export const loginReportExport = (role = 'ZBM') =>
+  downloadExport(`/hsd/login-report-export?role=${role}`, `${role}-login-activity-${new Date().toISOString().split('T')[0]}.xlsx`);
 export const adminExport = () => downloadExport('/admin/export',   `National-Report-${new Date().toISOString().split('T')[0]}.xlsx`);
 export const listerExport = () => downloadExport('/lister/export',  `Copperbelt-Activations-${new Date().toISOString().split('T')[0]}.xlsx`);

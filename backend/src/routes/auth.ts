@@ -48,6 +48,11 @@ router.post(
         { expiresIn: '24h' }
       );
 
+      // Record login event (fire-and-forget)
+      prisma.loginLog.create({
+        data: { userId: user.id, userName: user.name, role: user.role, zone: user.zone },
+      }).catch(() => {});
+
       res.json({
         success: true,
         data: {
