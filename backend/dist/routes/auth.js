@@ -23,7 +23,20 @@ router.post('/login', [
     const { staffId, pin } = req.body;
     try {
         const user = await prisma_1.default.user.findUnique({ where: { staffId } });
-        if (!user || !user.active) {
+        // ── DSA login path (DSAs live in the DSA table, not User) ──
+        if (!user) {
+            const dsa = await prisma_1.default.dSA.findUnique({ where: { staffId }, include: { teamLead: true } });
+            if (dsa && dsa.pinHash && dsa.status === 'ACTIVE' && (await bcryptjs_1.default.compare(pin, dsa.pinHash))) {
+                const secret = process.env.JWT_SECRET || 'tl-tracker-jwt-secret-2024';
+                const token = jsonwebtoken_1.default.sign({ userId: dsa.id, staffId: dsa.staffId, role: 'DSA', dsaId: dsa.id, teamLeadId: dsa.teamLeadId }, secret, { expiresIn: '24h' });
+                prisma_1.default.loginLog.create({ data: { userId: dsa.id, userName: dsa.name, role: 'DSA', zone: dsa.teamLead?.zone } }).catch(() => { });
+                res.json({ success: true, data: { token, user: { id: dsa.id, staffId: dsa.staffId, name: dsa.name, role: 'DSA', teamLeadId: dsa.teamLeadId, dsaId: dsa.id, mustChangePin: dsa.mustChangePin } } });
+                return;
+            }
+            res.status(401).json({ success: false, error: 'Invalid credentials' });
+            return;
+        }
+        if (!user.active) {
             res.status(401).json({ success: false, error: 'Invalid credentials' });
             return;
         }

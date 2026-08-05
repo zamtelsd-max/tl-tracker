@@ -13,6 +13,7 @@ const zbm_1 = require("./routes/zbm");
 const hsd_1 = require("./routes/hsd");
 const admin_1 = require("./routes/admin");
 const lister_1 = require("./routes/lister");
+const dsa_1 = require("./routes/dsa");
 const alerts_1 = require("./services/alerts");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -37,6 +38,7 @@ app.use('/api/v1/zbm', zbm_1.zbmRouter);
 app.use('/api/v1/hsd', hsd_1.hsdRouter);
 app.use('/api/v1/admin', admin_1.adminRouter);
 app.use('/api/v1/lister', lister_1.listerRouter);
+app.use('/api/v1/dsa', dsa_1.dsaRouter);
 // 404 handler
 app.use((_req, res) => {
     res.status(404).json({ success: false, error: 'Route not found' });

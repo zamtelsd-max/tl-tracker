@@ -6,6 +6,7 @@ export interface AuthPayload {
   staffId: string;
   role: string;
   teamLeadId?: string;
+  dsaId?: string;
 }
 
 export interface AuthRequest extends Request {

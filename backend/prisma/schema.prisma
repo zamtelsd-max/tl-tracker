@@ -76,11 +76,41 @@ model DSA {
   dateJoined DateTime  @default(now())
   createdAt  DateTime  @default(now())
 
+  // Login account (DSAs can sign in) — columns already exist in DB
+  staffId       String?  @unique
+  pinHash       String?
+  mustChangePin Boolean  @default(true)
+
   activations Activation[]
   registeredNumbers RegisteredNumber[]
   grossAdds   GrossAdd[]
+  attendances Attendance[]
 
   @@unique([teamLeadId, name])
+}
+
+// Gate-meeting attendance / clock-in (columns already exist in DB)
+model Attendance {
+  id              String    @id @default(cuid())
+  dsaId           String
+  dsa             DSA       @relation(fields: [dsaId], references: [id])
+  teamLeadId      String
+  date            String
+  clockInAt       DateTime?
+  onTime          Boolean   @default(false)
+  latitude        Float?
+  longitude       Float?
+  locationOk      Boolean   @default(true)
+  firstCustomerAt DateTime?
+  timeToFirstMin  Int?
+  worked          Boolean   @default(true)
+  approved        Boolean   @default(false)
+  approvedBy      String?
+  approvedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@unique([dsaId, date])
+  @@index([teamLeadId, date])
 }
 
 enum DSAStatus {
