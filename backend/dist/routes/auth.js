@@ -40,6 +40,10 @@ router.post('/login', [
         }
         const secret = process.env.JWT_SECRET || 'tl-tracker-jwt-secret-2024';
         const token = jsonwebtoken_1.default.sign({ userId: user.id, staffId: user.staffId, role: user.role, teamLeadId }, secret, { expiresIn: '24h' });
+        // Record login event (fire-and-forget)
+        prisma_1.default.loginLog.create({
+            data: { userId: user.id, userName: user.name, role: user.role, zone: user.zone },
+        }).catch(() => { });
         res.json({
             success: true,
             data: {
