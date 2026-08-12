@@ -2,7 +2,9 @@
 FROM node:20-slim AS build
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+# Copy package manifests + prisma schema first so the postinstall "prisma generate" finds the schema
 COPY package*.json ./
+COPY prisma ./prisma
 RUN npm install --legacy-peer-deps
 COPY . .
 RUN npx prisma generate && npx tsc
